@@ -25,7 +25,7 @@ class DBConnectionWrapper:
         self.is_postgres = is_postgres
         
     def execute(self, query, params=None):
-               if self.is_postgres:
+        if self.is_postgres:
             query = query.replace('?', '%s')
             query = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
             cursor = self.conn.cursor(cursor_factory=DictCursor)
