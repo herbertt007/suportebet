@@ -1,0 +1,525 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<!-- Header do usuario -->
+<div class="user-header-bar">
+    <div class="user-info">
+        <span class="user-greeting">👋 {{ user.username }}</span>
+        <span class="stat-badge">✅ {{ user.correct_bets }} acertos</span>
+    </div>
+
+    <h2 class="world-cup-title">
+        <span class="world-cup-globe" aria-hidden="true">🌎</span>
+        COPA DO MUNDO
+    </h2>
+
+    <div class="admin-actions">
+        <a href="{{ url_for('pull_games') }}" class="admin-btn" title="Puxar Jogos">Puxar Jogos</a>
+        <a href="{{ url_for('resolve_games') }}" class="admin-btn secondary" title="Atualizar Placares">Atualizar Placares</a>
+    </div>
+</div>
+
+<!-- Grid principal: 22% Ranking | 50% Jogos | 28% Histórico -->
+<div class="dashboard-grid">
+
+    <!-- ===== COLUNA 1: Ranking ===== -->
+    <aside class="ranking-sidebar">
+        <div class="sticky-wrapper">
+            <h2 class="sidebar-title-outside">🏆 Ranking</h2>
+            <div class="sidebar-card">
+            {% if users %}
+                <ul class="ranking-list">
+                    {% for u in users %}
+                    <li class="ranking-item">
+                        <span class="ranking-pos {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                        <span class="ranking-name">{{ u.username }}</span>
+                        <span class="ranking-pts">{{ u.correct_bets }}<small>acertos</small></span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="empty-msg">Sem usuários ainda.</p>
+            {% endif %}
+            <a href="{{ url_for('leaderboard') }}" class="see-all-link">Ver Ranking Completo →</a>
+        </div>
+        </div>
+    </aside>
+
+    <!-- ===== COLUNA 2: Jogos de Hoje ===== -->
+    <main class="games-main">
+        <h2 class="section-title">⚽ Jogos de Hoje</h2>
+
+        {% if games %}
+            {% for game in games %}
+            <div class="match-card {% if game.status == 'finished' %}finished{% endif %}">
+
+                <!-- Meta: hora e status -->
+                <div class="match-meta">
+                    <span class="match-time">🕐 {{ game.date }}</span>
+                    {% if game.status == 'finished' %}
+                        <span class="match-status finished-badge">Finalizado</span>
+                    {% else %}
+                        <span class="match-status live-badge">Disponível</span>
+                    {% endif %}
+                </div>
+
+                <div class="match-body">
+                    <!-- Times -->
+                    <div class="teams-col">
+                        <div class="team-row">
+                            {% if game.team_a_crest %}<img src="{{ game.team_a_crest }}" class="team-flag" alt="{{ game.team_a }}">{% endif %}
+                            <span class="team-name">{{ game.team_a }}</span>
+                        </div>
+                        <div class="team-row" style="margin-top:0.6rem;">
+                            {% if game.team_b_crest %}<img src="{{ game.team_b_crest }}" class="team-flag" alt="{{ game.team_b }}">{% endif %}
+                            <span class="team-name">{{ game.team_b }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Resultado ou Palpite -->
+                    {% if game.status == 'finished' %}
+                        <div class="result-box">
+                            <div class="result-label">Resultado Final</div>
+                            <div class="result-score">
+                                {% if game.winner == 'team_a' %}{{ game.team_a }} venceu
+                                {% elif game.winner == 'team_b' %}{{ game.team_b }} venceu
+                                {% else %}Empate{% endif %}
+                            </div>
+                            <div class="result-goals">{{ game.goals_total or 0 }} gols no total</div>
+                        </div>
+                    {% else %}
+                        <div class="bet-section">
+                            {% set score_bet = bets_dict.get(game.id, {}).get('score', '') %}
+                            {% set score_a = score_bet.split('-')[0] if score_bet else '0' %}
+                            {% set score_b = score_bet.split('-')[1] if score_bet and '-' in score_bet else '0' %}
+                            <span class="bet-label">Seu Palpite</span>
+                            <div class="score-input-row">
+                                <div class="score-team-block">
+                                    <span class="score-team-name">{{ game.team_a[:3].upper() }}</span>
+                                    <input type="number" min="0" max="20" class="score-input"
+                                        id="score-a-{{ game.id }}" value="{{ score_a }}"
+                                        onchange="onScoreChange({{ game.id }})">
+                                </div>
+                                <span class="score-vs">X</span>
+                                <div class="score-team-block">
+                                    <span class="score-team-name">{{ game.team_b[:3].upper() }}</span>
+                                    <input type="number" min="0" max="20" class="score-input"
+                                        id="score-b-{{ game.id }}" value="{{ score_b }}"
+                                        onchange="onScoreChange({{ game.id }})">
+                                </div>
+                            </div>
+                            <div class="confirm-row visible">
+                                <button class="confirm-btn {% if score_bet %}confirmed{% endif %}"
+                                    id="confirm-btn-{{ game.id }}"
+                                    onclick="confirmScoreBet({{ game.id }})">
+                                    {% if score_bet %}✓ {{ score_a }} x {{ score_b }}{% else %}Apostar{% endif %}
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-games-card">
+                <div class="empty-icon">⚽</div>
+                <p>Nenhum jogo encontrado para hoje.</p>
+                <p class="empty-sub">Clique em <strong>"Puxar Jogos"</strong> acima.</p>
+            </div>
+        {% endif %}
+    </main>
+
+    <!-- ===== COLUNA 3: Histórico de Apostas ===== -->
+    <aside class="history-sidebar">
+        <div class="history-sidebar-content">
+            <h2 class="sidebar-title-outside">📋 Apostas dos Usuários</h2>
+            <div class="sidebar-card">
+            {% if bet_history %}
+                <ul class="history-list">
+                    {% for b in bet_history %}
+                    <li class="history-item">
+                        <div class="history-match">
+                            <span class="history-teams">{{ b.team_a }} x {{ b.team_b }}</span>
+                            <span class="history-time">{{ b.date }}</span>
+                        </div>
+                        <div class="history-detail" style="flex-wrap: wrap;">
+                            <span class="history-prediction" style="width: 100%; margin-bottom: 4px;">
+                                👤 <strong>{{ b.username }}</strong>
+                            </span>
+                            <span class="history-prediction">
+                                🎯
+                                {% if b.bet_type == 'score' %}
+                                    Placar: {{ b.prediction.replace('-', ' x ') }}
+                                {% elif b.bet_type == 'winner' %}
+                                    {% if b.prediction == 'team_a' %}{{ b.team_a }} vence
+                                    {% elif b.prediction == 'team_b' %}{{ b.team_b }} vence
+                                    {% else %}Empate{% endif %}
+                                {% endif %}
+                            </span>
+                            <span class="history-status
+                                {% if b.status == 'won' %} status-won
+                                {% elif b.status == 'lost' %} status-lost
+                                {% else %} status-pending{% endif %}">
+                                {% if b.status == 'won' %}✅ Acertou
+                                {% elif b.status == 'lost' %}❌ Errou
+                                {% else %}⏳ Pendente{% endif %}
+                            </span>
+                        </div>
+                        {% if b.game_status == 'finished' %}
+                        <div class="history-result">
+                            Resultado real:
+                            {% if b.winner == 'team_a' %}{{ b.team_a }} venceu
+                            {% elif b.winner == 'team_b' %}{{ b.team_b }} venceu
+                            {% else %}Empate ({{ b.goals_total }} gols){% endif %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="history-empty">
+                    <span style="font-size:2rem;">📭</span>
+                    <p>Nenhuma aposta foi feita ainda.</p>
+                </div>
+            {% endif %}
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<style>
+/* ====== Header ====== */
+.user-header-bar {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    background:
+        linear-gradient(135deg, rgba(211,47,47,0.96) 0%, rgba(120,12,18,0.98) 43%, rgba(55,0,7,1) 100%);
+    border: 1px solid rgba(239,83,80,0.45);
+    border-radius: 8px;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.08), 0 10px 26px rgba(0,0,0,0.22);
+    min-height: 68px;
+    padding: 0.72rem 1rem;
+    margin-bottom: 1.25rem;
+    gap: 1rem;
+    overflow: hidden;
+}
+.user-header-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 44%;
+    background: linear-gradient(135deg, rgba(255,117,37,0.44), rgba(255,117,37,0) 62%);
+    pointer-events: none;
+}
+.world-cup-title {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    color: #fff;
+    font-size: 1.16rem;
+    font-weight: 900;
+    line-height: 1;
+    text-align: center;
+    text-transform: uppercase;
+}
+.world-cup-globe {
+    color: #42d6d0;
+    font-size: 0.9rem;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35));
+}
+.user-info {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+.user-greeting {
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 800;
+}
+.stat-badge {
+    background: rgba(211,47,47,0.24);
+    color: #ef9a9a;
+    border: 1px solid #ef5350;
+    border-radius: 20px;
+    padding: 0.18rem 0.7rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.45;
+}
+.admin-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+.admin-btn {
+    background: #e33337;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.45rem 1rem;
+    font-size: 0.83rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+}
+.admin-btn:hover { background: var(--secondary-color); }
+.admin-btn.secondary { background: rgba(20,0,0,0.32); border: 1px solid rgba(255,255,255,0.35); color: #fff; }
+.admin-btn.secondary:hover { border-color: #fff; color: #fff; }
+
+/* ====== Grid 3 colunas ====== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 22% 1fr 26%;
+    gap: 1.25rem;
+    align-items: stretch;
+}
+
+/* ====== Sidebar cards comuns ====== */
+.sidebar-card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 12px;
+    padding: 1.1rem;
+}
+.sticky-wrapper {
+    position: sticky;
+    top: 1rem;
+}
+.sidebar-title-outside {
+    margin-top: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #ef5350;
+    margin-bottom: 0.9rem;
+}
+.sidebar-title {
+    margin-top: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ef5350;
+    border-bottom: 1px solid #2a2a2a;
+    padding-bottom: 0.6rem;
+    margin-bottom: 0.75rem;
+}
+
+/* ====== Ranking ====== */
+.ranking-list { list-style: none; padding: 0; margin: 0; }
+.ranking-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem 0; border-bottom: 1px solid #222; font-size: 0.88rem; }
+.ranking-pos { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; font-size: 0.75rem; background: #2a2a2a; color: #aaa; flex-shrink: 0; }
+.ranking-pos.gold { background: #ffd700; color: #000; }
+.ranking-pos.silver { background: #c0c0c0; color: #000; }
+.ranking-pos.bronze { background: #cd7f32; color: #000; }
+.ranking-name { flex: 1; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ranking-pts { font-weight: 700; color: #ef5350; font-size: 0.82rem; }
+.ranking-pts small { font-size: 0.68rem; margin-left: 2px; color: #666; }
+.see-all-link { display: block; text-align: center; margin-top: 0.9rem; color: #666; text-decoration: none; font-size: 0.78rem; transition: color 0.2s; }
+.see-all-link:hover { color: #ef5350; }
+.empty-msg { color: #555; font-size: 0.85rem; text-align: center; padding: 1rem 0; }
+
+/* ====== Jogos ====== */
+.section-title { margin-top: 0; font-size: 1.05rem; font-weight: 700; color: #fff; margin-bottom: 0.9rem; }
+.match-card { background: #1c1c1c; border: 1px solid #2c2c2c; border-radius: 12px; padding: 1rem 1.1rem; margin-bottom: 0.9rem; transition: border-color 0.2s; }
+.match-card:last-child { margin-bottom: 0; }
+.match-card:hover { border-color: #3a3a3a; }
+.match-card.finished { opacity: 0.65; }
+.match-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.match-time { font-size: 0.78rem; color: #777; }
+.match-status { font-size: 0.72rem; font-weight: 600; border-radius: 20px; padding: 0.12rem 0.55rem; }
+.finished-badge { background: #222; color: #666; }
+.live-badge { background: rgba(211,47,47,0.15); color: #ef9a9a; border: 1px solid #c62828; }
+.match-body { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
+.teams-col { flex: 1; }
+.team-row { display: flex; align-items: center; gap: 8px; }
+.team-flag { width: 24px; height: 17px; object-fit: contain; border-radius: 2px; flex-shrink: 0; }
+.team-name { font-size: 1rem; font-weight: 600; color: #fff; }
+
+/* Resultado finalizado */
+.result-box { text-align: center; min-width: 120px; }
+.result-label { font-size: 0.68rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+.result-score { font-size: 0.88rem; font-weight: 700; color: #ef5350; margin: 0.25rem 0; }
+.result-goals { font-size: 0.72rem; color: #555; }
+
+/* ====== Palpite de placar ====== */
+.bet-section { min-width: 160px; }
+.bet-label { font-size: 0.68rem; color: #777; text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.3rem; }
+.score-input-row { display: flex; align-items: center; gap: 0.5rem; }
+.score-team-block { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.score-team-name { font-size: 0.65rem; color: #777; font-weight: 600; letter-spacing: 0.5px; }
+.score-input {
+    width: 50px; height: 44px; text-align: center; font-size: 1.3rem; font-weight: 700;
+    color: #fff; background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 8px;
+    outline: none; transition: border-color 0.2s, background 0.2s; -moz-appearance: textfield;
+}
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.score-input:focus { border-color: #ef5350; background: #2e1010; }
+.score-vs { font-size: 1rem; font-weight: 700; color: #444; margin-top: 16px; }
+.confirm-row { display: none; margin-top: 0.6rem; justify-content: flex-end; }
+.confirm-row.visible { display: flex; }
+.confirm-btn {
+    background: var(--primary-color); color: #fff; border: none; border-radius: 6px;
+    padding: 0.4rem 1rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    transition: background 0.2s; white-space: nowrap;
+}
+.confirm-btn:hover { background: var(--secondary-color); }
+.confirm-btn.confirmed { background: rgba(76,175,80,0.2); border: 1px solid #4caf50; color: #4caf50; }
+.confirm-btn.confirmed:hover { background: rgba(76,175,80,0.35); }
+
+/* ====== Vazio ====== */
+.empty-games-card { text-align: center; padding: 2.5rem; background: #1c1c1c; border: 1px dashed #2a2a2a; border-radius: 12px; color: #555; }
+.empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.empty-sub { font-size: 0.82rem; margin-top: 0.4rem; }
+
+/* ====== Histórico de apostas ====== */
+.history-sidebar {
+    position: relative;
+}
+.history-sidebar-content {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+}
+.history-sidebar-content .sidebar-card {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+.history-sidebar-content .sidebar-card::-webkit-scrollbar { width: 6px; }
+.history-sidebar-content .sidebar-card::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 4px; }
+.history-sidebar-content .sidebar-card::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+.history-sidebar-content .sidebar-card::-webkit-scrollbar-thumb:hover { background: #ef5350; }
+
+.history-list { list-style: none; padding: 0; margin: 0; }
+.history-item {
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.history-item:last-child { border-bottom: none; }
+.history-match { display: flex; flex-direction: column; gap: 2px; }
+.history-teams { font-size: 0.85rem; font-weight: 600; color: #ddd; }
+.history-time { font-size: 0.72rem; color: #555; }
+.history-detail { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.history-prediction { font-size: 0.8rem; color: #aaa; }
+.history-status { font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+.history-result { font-size: 0.72rem; color: #555; font-style: italic; }
+.status-won { color: #4caf50; }
+.status-lost { color: #ef5350; }
+.status-pending { color: #888; }
+.history-empty { text-align: center; padding: 1.5rem 0.5rem; color: #555; display: flex; flex-direction: column; gap: 0.4rem; align-items: center; }
+
+/* ====== Toast ====== */
+.toast {
+    position: fixed; bottom: 2rem; right: 2rem;
+    background: #333; color: #fff; padding: 0.7rem 1.1rem;
+    border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+    opacity: 0; transform: translateY(20px); transition: all 0.3s;
+    z-index: 9999; pointer-events: none; border-left: 4px solid #ef5350;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { border-left-color: #4caf50; }
+
+/* ====== Responsivo ====== */
+@media (max-width: 1100px) {
+    .dashboard-grid { grid-template-columns: 25% 1fr; }
+    .history-sidebar { display: none; }
+}
+@media (max-width: 700px) {
+    .user-header-bar {
+        grid-template-columns: auto 1fr;
+        min-height: 64px;
+    }
+    .world-cup-title {
+        justify-content: flex-start;
+        font-size: 1rem;
+    }
+    .admin-actions {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+    }
+    .admin-btn {
+        flex: 1;
+        text-align: center;
+        padding-inline: 0.7rem;
+    }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .ranking-sidebar { order: 3; }
+    .games-main { order: 1; }
+    .match-body { flex-direction: column; align-items: flex-start; }
+    .bet-section { width: 100%; }
+}
+</style>
+
+<script>
+function showToast(msg, type='info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast ' + type + ' show';
+    setTimeout(() => { toast.classList.remove('show'); }, 3000);
+}
+
+function onScoreChange(gameId) {
+    const btn = document.getElementById('confirm-btn-' + gameId);
+    btn.textContent = 'Apostar';
+    btn.classList.remove('confirmed');
+}
+
+function confirmScoreBet(gameId) {
+    const inputA = document.getElementById('score-a-' + gameId);
+    const inputB = document.getElementById('score-b-' + gameId);
+    const btn = document.getElementById('confirm-btn-' + gameId);
+
+    const scoreA = parseInt(inputA.value);
+    const scoreB = parseInt(inputB.value);
+
+    if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) {
+        showToast('⚠️ Placar inválido!', 'info');
+        return;
+    }
+
+    fetch('/bet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId, bet_type: 'score', prediction: scoreA + '-' + scoreB })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            btn.textContent = '✓ ' + scoreA + ' x ' + scoreB;
+            btn.classList.add('confirmed');
+            showToast('✅ ' + data.message, 'success');
+            // Atualiza histórico após 1s
+            setTimeout(() => location.reload(), 1200);
+        } else {
+            showToast('❌ ' + data.message, 'error');
+        }
+    })
+    .catch(() => showToast('❌ Erro ao enviar aposta', 'error'));
+}
+</script>
+{% endblock %}

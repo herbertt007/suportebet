@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="card" style="max-width: 400px; margin: 4rem auto; text-align: center;">
+    <h2>Cadastro - Suporte Bet</h2>
+    <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Crie seu usuário para começar a apostar.</p>
+    
+    <form method="POST">
+        <input type="text" name="username" placeholder="Seu nome de usuário" required autocomplete="off">
+        <input type="password" name="password" placeholder="Sua senha" required style="width: 100%; padding: 0.75rem; border: 1px solid #333; border-radius: 6px; background: #222; color: #fff; margin-bottom: 1rem; font-size: 1rem;">
+        <button type="submit" class="btn">Criar Conta</button>
+    </form>
+    <p style="margin-top: 1rem; color: var(--text-muted);">Já tem cadastro? <a href="{{ url_for('login') }}" style="color: var(--primary-color);">Faça login aqui</a></p>
+</div>
+{% endblock %}

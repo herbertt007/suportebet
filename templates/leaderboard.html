@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" style="display: inline-block; margin-bottom: 1rem;">&larr; Voltar para Jogos</a>
+
+<div class="card">
+    <h2>🏆 Ranking Geral</h2>
+    <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Os melhores apostadores da Suporte Bet.</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Posição</th>
+                <th>Usuário</th>
+                <th>Acertos</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td><strong>#{{ loop.index }}</strong></td>
+                <td>{{ u.username }} {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% endif %}</td>
+                <td style="color: var(--primary-color); font-weight: bold;">{{ u.correct_bets }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" style="text-align: center;">Nenhum usuário cadastrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
