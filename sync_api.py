@@ -1,11 +1,10 @@
 import urllib.request
 import urllib.error
 import json
-import sqlite3
-import random
+import os
 from datetime import datetime, timedelta
+import database
 
-DATABASE = 'bets.db'
 API_KEY = '5659792488e64b63abedb36f34674961'
 API_HOST = 'api.football-data.org'
 
@@ -53,11 +52,6 @@ TRANSLATIONS = {
 def translate_name(name):
     return TRANSLATIONS.get(name, name)
 
-def get_db():
-    conn = sqlite3.connect(DATABASE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def fetch_from_api(endpoint):
     url = f"https://{API_HOST}/v4/{endpoint}"
     req = urllib.request.Request(url, headers={
@@ -88,9 +82,10 @@ def pull_new_games():
     
     data = fetch_from_api(f"competitions/WC/matches?dateFrom={date_from}&dateTo={date_to}")
     
-    conn = get_db()
+    conn = database.get_db()
     if not data or 'matches' not in data:
         print("Nenhum dado retornado da API ou API não autorizada.")
+        conn.close()
         return False
         
     matches = data['matches']
@@ -139,7 +134,7 @@ def pull_new_games():
 
 def resolve_pending_games():
     """Busca o resultado real na API para os jogos pendentes e distribui pontos."""
-    conn = get_db()
+    conn = database.get_db()
     pending_games = conn.execute("SELECT * FROM games WHERE status = 'pending' AND api_id IS NOT NULL").fetchall()
     
     if not pending_games:
