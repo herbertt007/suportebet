@@ -29,6 +29,7 @@ class DBConnectionWrapper:
             query = query.replace('?', '%s')
             query = query.replace('AUTOINCREMENT', 'SERIAL')
             cursor = self.conn.cursor(cursor_factory=DictCursor)
+            query = query.replace('INTEGER PRIMARY KEY AUTOINCREMENT', 'SERIAL PRIMARY KEY')
         else:
             cursor = self.conn.cursor()
             
