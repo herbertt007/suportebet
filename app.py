@@ -21,8 +21,7 @@ def index():
     
     # Buscar apostas do usuário atual para marcar quais já foram feitas
     user_bets = conn.execute(
-        'SELECT game_id, bet_type, prediction FROM bets WHERE user_id = ? AND status = "pending"',
-        (session['user_id'],)
+        "SELECT game_id, bet_type, prediction FROM bets WHERE user_id = ? AND status = 'pending'"
     ).fetchall()
     
     # Criar dicionário: {game_id: {bet_type: prediction}}
