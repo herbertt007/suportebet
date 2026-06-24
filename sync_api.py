@@ -140,7 +140,7 @@ def pull_new_games():
 def resolve_pending_games():
     """Busca o resultado real na API para os jogos pendentes e distribui pontos."""
     conn = get_db()
-    pending_games = conn.execute('SELECT * FROM games WHERE status = "pending" AND api_id IS NOT NULL').fetchall()
+    pending_games = conn.execute("SELECT * FROM games WHERE status = 'pending' AND api_id IS NOT NULL").fetchall()
     
     if not pending_games:
         conn.close()
@@ -182,7 +182,7 @@ def resolve_pending_games():
     return True
 
 def resolve_bets(conn, game_id, winner, goals_total, home_goals, away_goals):
-    bets = conn.execute('SELECT * FROM bets WHERE game_id = ? AND status = "pending"', (game_id,)).fetchall()
+    bets = conn.execute("SELECT * FROM bets WHERE game_id = ? AND status = 'pending'", (game_id,)).fetchall()
     for bet in bets:
         won = False
         points_awarded = 0
