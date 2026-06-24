@@ -49,19 +49,37 @@ def index():
             bets_dict[b['game_id']] = {}
         bets_dict[b['game_id']][b['bet_type']] = b['prediction']
     
-    # Apostas de todos os usuários
+    # Apostas de todos os usuários agrupadas por jogo
     bet_history = conn.execute('''
-        SELECT u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
+        SELECT g.id as game_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
                g.winner, g.goals_total
         FROM bets b
         JOIN games g ON b.game_id = g.id
         JOIN users u ON b.user_id = u.id
-        ORDER BY g.date ASC, u.username ASC
+        ORDER BY g.date ASC, g.team_a ASC, g.team_b ASC, u.username ASC
     ''').fetchall()
+
+    bet_games_map = {}
+    for bet_item in bet_history:
+        game_id = bet_item['game_id']
+        if game_id not in bet_games_map:
+            bet_games_map[game_id] = {
+                'game_id': game_id,
+                'team_a': bet_item['team_a'],
+                'team_b': bet_item['team_b'],
+                'date': bet_item['date'],
+                'game_status': bet_item['game_status'],
+                'winner': bet_item['winner'],
+                'goals_total': bet_item['goals_total'],
+                'bets': []
+            }
+        bet_games_map[game_id]['bets'].append(bet_item)
+
+    bet_games = list(bet_games_map.values())
     
     conn.close()
-    return render_template('dashboard.html', user=user, games=games, users=users, bets_dict=bets_dict, bet_history=bet_history)
+    return render_template('dashboard.html', user=user, games=games, users=users, bets_dict=bets_dict, bet_games=bet_games)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
