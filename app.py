@@ -1,9 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from werkzeug.utils import secure_filename
+import os
+from uuid import uuid4
 import database
 import sync_api
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_world_cup'
+app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+def allowed_profile_photo(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    flash('A imagem e muito grande. Envie uma foto com ate 16 MB.')
+    if 'user_id' in session:
+        return redirect(url_for('profile'))
+    return redirect(url_for('login'))
 
 @app.before_request
 def setup():
@@ -17,7 +34,7 @@ def index():
     conn = database.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
     games = conn.execute('SELECT * FROM games ORDER BY date ASC').fetchall()
-    users = conn.execute('SELECT username, correct_bets FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
+    users = conn.execute('SELECT username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
     
     # Buscar apostas do usuário atual para marcar quais já foram feitas
     user_bets = conn.execute(
@@ -34,7 +51,7 @@ def index():
     
     # Apostas de todos os usuários
     bet_history = conn.execute('''
-        SELECT u.username, b.bet_type, b.prediction, b.status,
+        SELECT u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
                g.winner, g.goals_total
         FROM bets b
@@ -86,6 +103,63 @@ def register():
 def logout():
     session.pop('user_id', None)
     return redirect(url_for('login'))
+
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = database.get_db()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    if not user:
+        conn.close()
+        session.pop('user_id', None)
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        photo_path = user['profile_photo']
+
+        if not username:
+            flash('Informe um nome para o perfil.')
+            conn.close()
+            return render_template('profile.html', user=user)
+
+        existing = conn.execute(
+            'SELECT id FROM users WHERE username = ? AND id <> ?',
+            (username, session['user_id'])
+        ).fetchone()
+        if existing:
+            flash('Esse nome de usuario ja esta em uso.')
+            conn.close()
+            return render_template('profile.html', user=user)
+
+        photo = request.files.get('profile_photo')
+        if photo and photo.filename:
+            if not allowed_profile_photo(photo.filename):
+                flash('Envie uma imagem PNG, JPG, JPEG, GIF ou WEBP.')
+                conn.close()
+                return render_template('profile.html', user=user)
+
+            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+            original_name = secure_filename(photo.filename)
+            extension = original_name.rsplit('.', 1)[1].lower()
+            filename = f"profile-{session['user_id']}-{uuid4().hex}.{extension}"
+            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            photo_path = f"uploads/{filename}"
+
+        conn.execute(
+            'UPDATE users SET username = ?, profile_photo = ? WHERE id = ?',
+            (username, photo_path, session['user_id'])
+        )
+        conn.commit()
+        conn.close()
+        flash('Perfil atualizado com sucesso!')
+        return redirect(url_for('profile'))
+
+    conn.close()
+    return render_template('profile.html', user=user)
 
 @app.route('/pull_games')
 def pull_games():

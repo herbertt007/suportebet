@@ -3,3 +3,5 @@ __pycache__/
 *.pyc
 bets.db
 .env
+static/uploads/*
+!static/uploads/.gitkeep

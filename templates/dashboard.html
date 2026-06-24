@@ -5,6 +5,11 @@
 <!-- Header do usuario -->
 <div class="user-header-bar">
     <div class="user-info">
+        {% if user.profile_photo %}
+            <img class="profile-avatar" src="{{ url_for('static', filename=user.profile_photo) }}" alt="{{ user.username }}">
+        {% else %}
+            <span class="profile-avatar profile-avatar-fallback">{{ user.username[:1].upper() }}</span>
+        {% endif %}
         <span class="user-greeting">👋 {{ user.username }}</span>
         <span class="stat-badge">✅ {{ user.correct_bets }} acertos</span>
     </div>
@@ -33,6 +38,11 @@
                     {% for u in users %}
                     <li class="ranking-item">
                         <span class="ranking-pos {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
+                        {% if u.profile_photo %}
+                            <img class="mini-avatar" src="{{ url_for('static', filename=u.profile_photo) }}" alt="{{ u.username }}">
+                        {% else %}
+                            <span class="mini-avatar mini-avatar-fallback">{{ u.username[:1].upper() }}</span>
+                        {% endif %}
                         <span class="ranking-name">{{ u.username }}</span>
                         <span class="ranking-pts">{{ u.correct_bets }}<small>acertos</small></span>
                     </li>
@@ -145,6 +155,11 @@
                         </div>
                         <div class="history-detail" style="flex-wrap: wrap;">
                             <span class="history-prediction" style="width: 100%; margin-bottom: 4px;">
+                                {% if b.profile_photo %}
+                                    <img class="mini-avatar" src="{{ url_for('static', filename=b.profile_photo) }}" alt="{{ b.username }}">
+                                {% else %}
+                                    <span class="mini-avatar mini-avatar-fallback">{{ b.username[:1].upper() }}</span>
+                                {% endif %}
                                 👤 <strong>{{ b.username }}</strong>
                             </span>
                             <span class="history-prediction">

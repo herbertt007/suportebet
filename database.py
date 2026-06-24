@@ -52,6 +52,9 @@ class DBConnectionWrapper:
         
     def commit(self):
         self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
         
     def close(self):
         self.conn.close()
@@ -74,9 +77,24 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL DEFAULT '',
             points INTEGER DEFAULT 0,
-            correct_bets INTEGER DEFAULT 0
+            correct_bets INTEGER DEFAULT 0,
+            profile_photo TEXT
         )
     ''')
+
+    if conn.is_postgres:
+        columns = conn.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'users'
+        """).fetchall()
+        column_names = {row['column_name'] for row in columns}
+    else:
+        columns = conn.execute('PRAGMA table_info(users)').fetchall()
+        column_names = {row['name'] for row in columns}
+
+    if 'profile_photo' not in column_names:
+        conn.execute('ALTER TABLE users ADD COLUMN profile_photo TEXT')
     
     conn.execute('''
         CREATE TABLE IF NOT EXISTS games (

@@ -4,14 +4,14 @@
 <a href="{{ url_for('index') }}" style="display: inline-block; margin-bottom: 1rem;">&larr; Voltar para Jogos</a>
 
 <div class="card">
-    <h2>🏆 Ranking Geral</h2>
+    <h2>Ranking Geral</h2>
     <p style="margin-bottom: 1.5rem; color: var(--text-muted);">Os melhores apostadores da Suporte Bet.</p>
-    
+
     <table>
         <thead>
             <tr>
-                <th>Posição</th>
-                <th>Usuário</th>
+                <th>Posicao</th>
+                <th>Usuario</th>
                 <th>Acertos</th>
             </tr>
         </thead>
@@ -19,12 +19,22 @@
             {% for u in users %}
             <tr>
                 <td><strong>#{{ loop.index }}</strong></td>
-                <td>{{ u.username }} {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% endif %}</td>
+                <td>
+                    <span class="leaderboard-user">
+                        {% if u.profile_photo %}
+                            <img class="mini-avatar" src="{{ url_for('static', filename=u.profile_photo) }}" alt="{{ u.username }}">
+                        {% else %}
+                            <span class="mini-avatar mini-avatar-fallback">{{ u.username[:1].upper() }}</span>
+                        {% endif %}
+                        {{ u.username }}
+                        {% if loop.index == 1 %}<strong>1o</strong>{% elif loop.index == 2 %}<strong>2o</strong>{% elif loop.index == 3 %}<strong>3o</strong>{% endif %}
+                    </span>
+                </td>
                 <td style="color: var(--primary-color); font-weight: bold;">{{ u.correct_bets }}</td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="3" style="text-align: center;">Nenhum usuário cadastrado.</td>
+                <td colspan="3" style="text-align: center;">Nenhum usuario cadastrado.</td>
             </tr>
             {% endfor %}
         </tbody>
