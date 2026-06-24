@@ -14,10 +14,22 @@ class DBCursorWrapper:
         self.is_postgres = is_postgres
         
     def fetchone(self):
-        return self.cursor.fetchone()
+        row = self.cursor.fetchone()
+        if row is None:
+            return None
+        if self.is_postgres:
+            return dict(row)
+        return row
         
     def fetchall(self):
-        return self.cursor.fetchall()
+        rows = self.cursor.fetchall()
+        if self.is_postgres:
+            return [dict(r) for r in rows]
+        return rows
+
+    @property
+    def lastrowid(self):
+        return self.cursor.lastrowid
 
 class DBConnectionWrapper:
     def __init__(self, conn, is_postgres=False):
