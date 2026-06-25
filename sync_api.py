@@ -133,15 +133,20 @@ def pull_new_games():
     return added > 0
 
 def resolve_pending_games():
-    """Busca o resultado real na API para os jogos pendentes e distribui pontos."""
+    """Busca o resultado real na API para jogos pendentes e corrige placares faltantes."""
     conn = database.get_db()
-    pending_games = conn.execute("SELECT * FROM games WHERE status = 'pending' AND api_id IS NOT NULL").fetchall()
-    
-    if not pending_games:
+    # Incluir jogos finalizados sem placar para corrigir dados antigos
+    games_to_resolve = conn.execute("""
+        SELECT * FROM games
+        WHERE api_id IS NOT NULL
+        AND (status = 'pending' OR (status = 'finished' AND (team_a_goals IS NULL OR team_b_goals IS NULL)))
+    """).fetchall()
+
+    if not games_to_resolve:
         conn.close()
         return False
-        
-    for game in pending_games:
+
+    for game in games_to_resolve:
         api_id = game['api_id']
         game_id = game['id']
         
