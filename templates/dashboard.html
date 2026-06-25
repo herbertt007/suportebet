@@ -17,174 +17,6 @@
     <h2 class="world-cup-title">COPA DO MUNDO</h2>
 </div>
 
-{% if user.is_admin %}
-<!-- Painel do Administrador -->
-<div class="admin-panel" id="admin-panel">
-    <div class="admin-panel-header" onclick="toggleAdminPanel()">
-        <div class="admin-panel-title">
-            <span class="admin-icon">⚙️</span>
-            <h3>Painel do Administrador</h3>
-            <span class="admin-badge">Admin</span>
-        </div>
-        <span class="admin-panel-chevron" id="admin-chevron">▼</span>
-    </div>
-
-    <div class="admin-panel-body" id="admin-panel-body">
-        <!-- Stats -->
-        <div class="admin-stats-row">
-            <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.total_users }}</span><span class="admin-stat-label">Usuarios</span></div>
-            <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.total_bets }}</span><span class="admin-stat-label">Apostas</span></div>
-            <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.pending_bets }}</span><span class="admin-stat-label">Pendentes</span></div>
-            <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.pending_games }}</span><span class="admin-stat-label">Jogos Abertos</span></div>
-            <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.finished_games }}</span><span class="admin-stat-label">Jogos Finalizados</span></div>
-        </div>
-
-        <!-- Acoes rapidas -->
-        <div class="admin-actions-row">
-            <a href="{{ url_for('pull_games') }}" class="admin-action-btn primary">📥 Puxar Jogos</a>
-            <a href="{{ url_for('resolve_games') }}" class="admin-action-btn">🔄 Atualizar Placares</a>
-            <button class="admin-action-btn" onclick="adminRecalculate()">📊 Recalcular Ranking</button>
-        </div>
-
-        <!-- Filtro e abas -->
-        <div class="admin-tabs">
-            <button class="admin-tab active" onclick="switchAdminTab('bets')" id="tab-bets">📋 Apostas</button>
-            <button class="admin-tab" onclick="switchAdminTab('games')" id="tab-games">⚽ Jogos</button>
-        </div>
-
-        <!-- Aba Apostas -->
-        <div class="admin-tab-content active" id="content-bets">
-            <div class="admin-filter-row">
-                <input type="text" id="admin-bet-search" class="admin-search" placeholder="Buscar usuario ou jogo..." oninput="filterAdminBets()">
-                <select id="admin-bet-status-filter" class="admin-select" onchange="filterAdminBets()">
-                    <option value="">Todos os status</option>
-                    <option value="pending">Pendente</option>
-                    <option value="won">Acertou</option>
-                    <option value="lost">Errou</option>
-                </select>
-                <select id="admin-bet-game-filter" class="admin-select" onchange="filterAdminBets()">
-                    <option value="">Todos os jogos</option>
-                    {% for g in admin_games %}
-                    <option value="{{ g.id }}">{{ g.team_a }} x {{ g.team_b }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="admin-table-wrap">
-                <table class="admin-table" id="admin-bets-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Jogo</th>
-                            <th>Palpite</th>
-                            <th>Status</th>
-                            <th>Real</th>
-                            <th>Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for b in admin_bets %}
-                        {% set parts = b.prediction.split('-') if b.prediction and '-' in b.prediction else ['0','0'] %}
-                        <tr class="admin-bet-row" data-bet-id="{{ b.id }}"
-                            data-username="{{ b.username|lower }}"
-                            data-match="{{ b.team_a|lower }} {{ b.team_b|lower }}"
-                            data-status="{{ b.status }}"
-                            data-game-id="{{ b.game_id }}">
-                            <td class="admin-cell-user"><strong>{{ b.username }}</strong></td>
-                            <td class="admin-cell-match">
-                                <span>{{ b.team_a }} x {{ b.team_b }}</span>
-                                <small>{{ b.date }}</small>
-                            </td>
-                            <td>
-                                {% if b.bet_type == 'score' %}
-                                <div class="admin-score-edit">
-                                    <input type="text" class="admin-score-input" id="abet-a-{{ b.id }}" value="{{ parts[0] }}" maxlength="3" oninput="validateScoreInput(this)">
-                                    <span>x</span>
-                                    <input type="text" class="admin-score-input" id="abet-b-{{ b.id }}" value="{{ parts[1] }}" maxlength="3" oninput="validateScoreInput(this)">
-                                </div>
-                                {% else %}
-                                <span>{{ b.prediction }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <select class="admin-select admin-status-select" id="abet-status-{{ b.id }}">
-                                    <option value="pending" {% if b.status == 'pending' %}selected{% endif %}>Pendente</option>
-                                    <option value="won" {% if b.status == 'won' %}selected{% endif %}>Acertou</option>
-                                    <option value="lost" {% if b.status == 'lost' %}selected{% endif %}>Errou</option>
-                                </select>
-                            </td>
-                            <td class="admin-cell-real">
-                                {% if b.game_status == 'finished' and b.team_a_goals is not none %}
-                                    {{ b.team_a_goals }} x {{ b.team_b_goals }}
-                                {% else %}
-                                    <span class="admin-muted">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="admin-cell-actions">
-                                <button class="admin-save-btn" onclick="adminSaveBet({{ b.id }}, '{{ b.bet_type }}')">Salvar</button>
-                                <button class="admin-delete-btn" onclick="adminDeleteBet({{ b.id }})">✕</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if not admin_bets %}
-                <p class="admin-empty">Nenhuma aposta registrada.</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Aba Jogos -->
-        <div class="admin-tab-content" id="content-games">
-            <div class="admin-table-wrap">
-                <table class="admin-table" id="admin-games-table">
-                    <thead>
-                        <tr>
-                            <th>Jogo</th>
-                            <th>Data</th>
-                            <th>Status</th>
-                            <th>Placar</th>
-                            <th>Acoes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for g in admin_games %}
-                        <tr>
-                            <td><strong>{{ g.team_a }}</strong> x <strong>{{ g.team_b }}</strong></td>
-                            <td><small>{{ g.date }}</small></td>
-                            <td>
-                                <select class="admin-select" id="agame-status-{{ g.id }}">
-                                    <option value="pending" {% if g.status == 'pending' %}selected{% endif %}>Pendente</option>
-                                    <option value="finished" {% if g.status == 'finished' %}selected{% endif %}>Finalizado</option>
-                                </select>
-                            </td>
-                            <td>
-                                <div class="admin-score-edit">
-                                    <input type="text" class="admin-score-input" id="agame-a-{{ g.id }}"
-                                        value="{{ g.team_a_goals if g.team_a_goals is not none else '' }}"
-                                        placeholder="-" maxlength="3" oninput="validateScoreInput(this)">
-                                    <span>x</span>
-                                    <input type="text" class="admin-score-input" id="agame-b-{{ g.id }}"
-                                        value="{{ g.team_b_goals if g.team_b_goals is not none else '' }}"
-                                        placeholder="-" maxlength="3" oninput="validateScoreInput(this)">
-                                </div>
-                            </td>
-                            <td>
-                                <button class="admin-save-btn" onclick="adminSaveGame({{ g.id }})">Salvar</button>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% if not admin_games %}
-                <p class="admin-empty">Nenhum jogo cadastrado.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
 <!-- Grid principal: 22% Ranking | 50% Jogos | 28% Histórico -->
 <div class="dashboard-grid">
 
@@ -470,6 +302,177 @@
 <!-- Toast -->
 <div id="toast" class="toast"></div>
 
+{% if user.is_admin %}
+<button type="button" class="admin-fab" id="admin-fab" onclick="openAdminPanel()" title="Painel do Administrador" aria-label="Abrir painel do administrador">
+    <span class="admin-fab-icon">⚙️</span>
+    <span class="admin-fab-label">Admin</span>
+</button>
+
+<div class="admin-overlay" id="admin-overlay" onclick="closeAdminPanel()"></div>
+
+<div class="admin-drawer" id="admin-drawer" role="dialog" aria-labelledby="admin-drawer-title" aria-hidden="true">
+    <div class="admin-panel" id="admin-panel">
+        <div class="admin-panel-header">
+            <div class="admin-panel-title">
+                <span class="admin-icon">⚙️</span>
+                <h3 id="admin-drawer-title">Painel do Administrador</h3>
+                <span class="admin-badge">Admin</span>
+            </div>
+            <button type="button" class="admin-close-btn" onclick="closeAdminPanel()" aria-label="Fechar painel">✕</button>
+        </div>
+
+        <div class="admin-panel-body" id="admin-panel-body">
+            <div class="admin-stats-row">
+                <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.total_users }}</span><span class="admin-stat-label">Usuarios</span></div>
+                <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.total_bets }}</span><span class="admin-stat-label">Apostas</span></div>
+                <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.pending_bets }}</span><span class="admin-stat-label">Pendentes</span></div>
+                <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.pending_games }}</span><span class="admin-stat-label">Jogos Abertos</span></div>
+                <div class="admin-stat"><span class="admin-stat-num">{{ admin_stats.finished_games }}</span><span class="admin-stat-label">Jogos Finalizados</span></div>
+            </div>
+
+            <div class="admin-actions-row">
+                <a href="{{ url_for('pull_games') }}" class="admin-action-btn primary">📥 Puxar Jogos</a>
+                <a href="{{ url_for('resolve_games') }}" class="admin-action-btn">🔄 Atualizar Placares</a>
+                <button type="button" class="admin-action-btn" onclick="adminRecalculate()">📊 Recalcular Ranking</button>
+            </div>
+
+            <div class="admin-tabs">
+                <button type="button" class="admin-tab active" onclick="switchAdminTab('bets')" id="tab-bets">📋 Apostas</button>
+                <button type="button" class="admin-tab" onclick="switchAdminTab('games')" id="tab-games">⚽ Jogos</button>
+            </div>
+
+            <div class="admin-tab-content active" id="content-bets">
+                <div class="admin-filter-row">
+                    <input type="text" id="admin-bet-search" class="admin-search" placeholder="Buscar usuario ou jogo..." oninput="filterAdminBets()">
+                    <select id="admin-bet-status-filter" class="admin-select" onchange="filterAdminBets()">
+                        <option value="">Todos os status</option>
+                        <option value="pending">Pendente</option>
+                        <option value="won">Acertou</option>
+                        <option value="lost">Errou</option>
+                    </select>
+                    <select id="admin-bet-game-filter" class="admin-select" onchange="filterAdminBets()">
+                        <option value="">Todos os jogos</option>
+                        {% for g in admin_games %}
+                        <option value="{{ g.id }}">{{ g.team_a }} x {{ g.team_b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="admin-bets-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Jogo</th>
+                                <th>Palpite</th>
+                                <th>Status</th>
+                                <th>Real</th>
+                                <th>Acoes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for b in admin_bets %}
+                            {% set parts = b.prediction.split('-') if b.prediction and '-' in b.prediction else ['0','0'] %}
+                            <tr class="admin-bet-row" data-bet-id="{{ b.id }}"
+                                data-username="{{ b.username|lower }}"
+                                data-match="{{ b.team_a|lower }} {{ b.team_b|lower }}"
+                                data-status="{{ b.status }}"
+                                data-game-id="{{ b.game_id }}">
+                                <td class="admin-cell-user"><strong>{{ b.username }}</strong></td>
+                                <td class="admin-cell-match">
+                                    <span>{{ b.team_a }} x {{ b.team_b }}</span>
+                                    <small>{{ b.date }}</small>
+                                </td>
+                                <td>
+                                    {% if b.bet_type == 'score' %}
+                                    <div class="admin-score-edit">
+                                        <input type="text" class="admin-score-input" id="abet-a-{{ b.id }}" value="{{ parts[0] }}" maxlength="3" oninput="validateScoreInput(this)">
+                                        <span>x</span>
+                                        <input type="text" class="admin-score-input" id="abet-b-{{ b.id }}" value="{{ parts[1] }}" maxlength="3" oninput="validateScoreInput(this)">
+                                    </div>
+                                    {% else %}
+                                    <span>{{ b.prediction }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <select class="admin-select admin-status-select" id="abet-status-{{ b.id }}">
+                                        <option value="pending" {% if b.status == 'pending' %}selected{% endif %}>Pendente</option>
+                                        <option value="won" {% if b.status == 'won' %}selected{% endif %}>Acertou</option>
+                                        <option value="lost" {% if b.status == 'lost' %}selected{% endif %}>Errou</option>
+                                    </select>
+                                </td>
+                                <td class="admin-cell-real">
+                                    {% if b.game_status == 'finished' and b.team_a_goals is not none %}
+                                        {{ b.team_a_goals }} x {{ b.team_b_goals }}
+                                    {% else %}
+                                        <span class="admin-muted">—</span>
+                                    {% endif %}
+                                </td>
+                                <td class="admin-cell-actions">
+                                    <button type="button" class="admin-save-btn" onclick="adminSaveBet({{ b.id }}, '{{ b.bet_type }}')">Salvar</button>
+                                    <button type="button" class="admin-delete-btn" onclick="adminDeleteBet({{ b.id }})">✕</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if not admin_bets %}
+                    <p class="admin-empty">Nenhuma aposta registrada.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="admin-tab-content" id="content-games">
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="admin-games-table">
+                        <thead>
+                            <tr>
+                                <th>Jogo</th>
+                                <th>Data</th>
+                                <th>Status</th>
+                                <th>Placar</th>
+                                <th>Acoes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for g in admin_games %}
+                            <tr>
+                                <td><strong>{{ g.team_a }}</strong> x <strong>{{ g.team_b }}</strong></td>
+                                <td><small>{{ g.date }}</small></td>
+                                <td>
+                                    <select class="admin-select" id="agame-status-{{ g.id }}">
+                                        <option value="pending" {% if g.status == 'pending' %}selected{% endif %}>Pendente</option>
+                                        <option value="finished" {% if g.status == 'finished' %}selected{% endif %}>Finalizado</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <div class="admin-score-edit">
+                                        <input type="text" class="admin-score-input" id="agame-a-{{ g.id }}"
+                                            value="{{ g.team_a_goals if g.team_a_goals is not none else '' }}"
+                                            placeholder="-" maxlength="3" oninput="validateScoreInput(this)">
+                                        <span>x</span>
+                                        <input type="text" class="admin-score-input" id="agame-b-{{ g.id }}"
+                                            value="{{ g.team_b_goals if g.team_b_goals is not none else '' }}"
+                                            placeholder="-" maxlength="3" oninput="validateScoreInput(this)">
+                                    </div>
+                                </td>
+                                <td>
+                                    <button type="button" class="admin-save-btn" onclick="adminSaveGame({{ g.id }})">Salvar</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% if not admin_games %}
+                    <p class="admin-empty">Nenhum jogo cadastrado.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <style>
 /* ====== Header ====== */
 .user-header-bar {
@@ -560,25 +563,81 @@
 .admin-btn.secondary { background: rgba(20,0,0,0.32); border: 1px solid rgba(255,255,255,0.35); color: #fff; }
 .admin-btn.secondary:hover { border-color: #fff; color: #fff; }
 
-/* ====== Painel Admin ====== */
+/* ====== Painel Admin (drawer) ====== */
+.admin-fab {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: linear-gradient(135deg, #d32f2f 0%, #8b0000 100%);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 50px;
+    padding: 0.65rem 1.1rem;
+    font-size: 0.85rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(211,47,47,0.45), 0 2px 8px rgba(0,0,0,0.3);
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.admin-fab:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(211,47,47,0.55), 0 4px 12px rgba(0,0,0,0.35);
+    background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+}
+.admin-fab-icon { font-size: 1.1rem; line-height: 1; }
+.admin-fab-label { letter-spacing: 0.3px; }
+
+.admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 9100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+    backdrop-filter: blur(2px);
+}
+.admin-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.admin-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(920px, 96vw);
+    height: 100vh;
+    z-index: 9200;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -8px 0 32px rgba(0,0,0,0.45);
+}
+.admin-drawer.open {
+    transform: translateX(0);
+}
+
 .admin-panel {
     background: #141414;
-    border: 1px solid rgba(239,83,80,0.35);
-    border-radius: 12px;
-    margin-bottom: 1.25rem;
+    border-left: 1px solid rgba(239,83,80,0.35);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 .admin-panel-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.75rem 1.1rem;
+    padding: 0.85rem 1.1rem;
     background: linear-gradient(135deg, rgba(211,47,47,0.18) 0%, rgba(80,0,0,0.25) 100%);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.2s;
+    border-bottom: 1px solid rgba(239,83,80,0.2);
+    flex-shrink: 0;
 }
-.admin-panel-header:hover { background: linear-gradient(135deg, rgba(211,47,47,0.28) 0%, rgba(80,0,0,0.35) 100%); }
 .admin-panel-title { display: flex; align-items: center; gap: 0.6rem; }
 .admin-panel-title h3 { margin: 0; font-size: 0.95rem; font-weight: 800; color: #ef5350; }
 .admin-icon { font-size: 1.1rem; }
@@ -593,14 +652,31 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-.admin-panel-chevron {
-    color: #ef5350;
-    font-size: 0.85rem;
-    transition: transform 0.25s;
+.admin-close-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ccc;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
 }
-.admin-panel.collapsed .admin-panel-chevron { transform: rotate(-90deg); }
-.admin-panel.collapsed .admin-panel-body { display: none; }
-.admin-panel-body { padding: 1rem 1.1rem 1.1rem; }
+.admin-close-btn:hover {
+    background: rgba(239,83,80,0.25);
+    border-color: #ef5350;
+    color: #fff;
+}
+.admin-panel-body {
+    padding: 1rem 1.1rem 1.1rem;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+.admin-panel-body::-webkit-scrollbar { width: 6px; }
+.admin-panel-body::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 
 .admin-stats-row {
     display: flex;
@@ -1121,6 +1197,13 @@
     .admin-action-btn { text-align: center; }
     .admin-filter-row { flex-direction: column; }
     .admin-table th:nth-child(4), .admin-table td:nth-child(4) { display: none; }
+    .admin-fab {
+        bottom: 1rem;
+        right: 1rem;
+        padding: 0.6rem 0.9rem;
+    }
+    .admin-fab-label { font-size: 0.8rem; }
+    .admin-drawer { width: 100vw; }
     .dashboard-grid { grid-template-columns: 1fr; }
     .ranking-sidebar { order: 3; }
     .games-main { order: 1; }
@@ -1192,9 +1275,25 @@ function confirmScoreBet(gameId) {
 }
 
 /* ====== Admin Panel JS ====== */
-function toggleAdminPanel() {
-    document.getElementById('admin-panel').classList.toggle('collapsed');
+function openAdminPanel() {
+    document.getElementById('admin-overlay').classList.add('open');
+    document.getElementById('admin-drawer').classList.add('open');
+    document.getElementById('admin-drawer').setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
 }
+
+function closeAdminPanel() {
+    document.getElementById('admin-overlay').classList.remove('open');
+    document.getElementById('admin-drawer').classList.remove('open');
+    document.getElementById('admin-drawer').setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.getElementById('admin-drawer')?.classList.contains('open')) {
+        closeAdminPanel();
+    }
+});
 
 function switchAdminTab(tab) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
