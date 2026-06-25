@@ -294,6 +294,16 @@ def revalidate_all_bets(conn):
         conn.execute('UPDATE users SET correct_bets = ?, points = ? WHERE id = ?',
                      (uw['wins'], uw['wins'] * 20, uw['user_id']))
 
+def recalculate_user_scores(conn):
+    """Recalcula acertos e pontos sem alterar status das apostas."""
+    conn.execute('UPDATE users SET correct_bets = 0, points = 0')
+    user_wins = conn.execute("""
+        SELECT user_id, COUNT(*) as wins FROM bets WHERE status = 'won' GROUP BY user_id
+    """).fetchall()
+    for uw in user_wins:
+        conn.execute('UPDATE users SET correct_bets = ?, points = ? WHERE id = ?',
+                     (uw['wins'], uw['wins'] * 20, uw['user_id']))
+
 if __name__ == "__main__":
     print("Sincronizando com a API...")
     if pull_new_games():
