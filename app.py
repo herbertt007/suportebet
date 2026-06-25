@@ -7,6 +7,8 @@ from uuid import uuid4
 import database
 import sync_api
 
+GAME_DATETIME_FORMAT = '%Y-%m-%d \u00e0s %H:%M'
+
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_world_cup'
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
@@ -87,7 +89,7 @@ def index():
     locked_games = set()
     for game in games:
         try:
-            game_dt = datetime.strptime(game['date'], '%Y-%m-%d ÿÿs %H:%M')
+            game_dt = datetime.strptime(game['date'], GAME_DATETIME_FORMAT)
             if now_local >= game_dt:
                 locked_games.add(game['id'])
         except (ValueError, TypeError):
@@ -321,7 +323,7 @@ def bet():
 
     # Verificar se o jogo j? come?ou pelo hor?rio
     try:
-        game_datetime = datetime.strptime(game['date'], '%Y-%m-%d ÿÿs %H:%M')
+        game_datetime = datetime.strptime(game['date'], GAME_DATETIME_FORMAT)
         now_local = datetime.utcnow() - timedelta(hours=3)
         if now_local >= game_datetime:
             conn.close()
