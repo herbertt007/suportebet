@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.utils import secure_filename
 import os
+import base64
 from datetime import datetime, timedelta
 from uuid import uuid4
 import database
@@ -10,6 +11,33 @@ app = Flask(__name__)
 app.secret_key = 'super_secret_key_world_cup'
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+
+# In-memory cache for profile images
+profile_image_cache = {}
+
+def get_profile_photo(user_id, profile_photo):
+    """Get profile photo from cache first, then from database"""
+    if user_id in profile_image_cache:
+        return profile_image_cache[user_id]
+    if profile_photo:
+        # If it's already a base64 data URL, cache it
+        if profile_photo.startswith('data:image'):
+            profile_image_cache[user_id] = profile_photo
+            return profile_photo
+        # If it's a file path, convert to base64 and cache
+        try:
+            file_path = os.path.join(app.root_path, 'static', profile_photo)
+            if os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    image_data = f.read()
+                extension = profile_photo.rsplit('.', 1)[1].lower()
+                base64_data = base64.b64encode(image_data).decode('utf-8')
+                data_url = f"data:image/{extension};base64,{base64_data}"
+                profile_image_cache[user_id] = data_url
+                return data_url
+        except Exception as e:
+            print(f"Error loading profile photo: {e}")
+    return None
 
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
@@ -34,12 +62,24 @@ def index():
     
     conn = database.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    # Process current user's profile photo
+    user_dict = dict(user)
+    user_dict['profile_photo'] = get_profile_photo(user['id'], user['profile_photo'])
+    
     today_local = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
     games = conn.execute(
         "SELECT * FROM games WHERE date LIKE ? ORDER BY date ASC",
         (f"{today_local}%",)
     ).fetchall()
-    users = conn.execute('SELECT username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
+    users = conn.execute('SELECT id, username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
+    
+    # Process users to use cached profile photos
+    users_with_photos = []
+    for u in users:
+        user_dict = dict(u)
+        user_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
+        users_with_photos.append(user_dict)
 
     # Determinar quais jogos já começaram (bloquear palpites)
     now_local = datetime.utcnow() - timedelta(hours=3)
@@ -70,7 +110,7 @@ def index():
     
     # Apostas de todos os usuários agrupadas por jogo (somente hoje)
     bet_history = conn.execute('''
-        SELECT g.id as game_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
+        SELECT g.id as game_id, u.id as user_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
                g.winner, g.goals_total, g.team_a_goals, g.team_b_goals
         FROM bets b
@@ -106,16 +146,19 @@ def index():
                 'team_b_goals': bet_item['team_b_goals'],
                 'bets': []
             }
-        bet_games_map[game_id]['bets'].append(bet_item)
+        # Process profile photo for this bet
+        bet_dict = dict(bet_item)
+        bet_dict['profile_photo'] = get_profile_photo(bet_item['user_id'], bet_item['profile_photo'])
+        bet_games_map[game_id]['bets'].append(bet_dict)
 
     bet_games = list(bet_games_map.values())
     
     conn.close()
     return render_template(
         'dashboard.html',
-        user=user,
+        user=user_dict,
         games=games,
-        users=users,
+        users=users_with_photos,
         bets_dict=bets_dict,
         bets_status=bets_status,
         locked_games=locked_games,
@@ -176,6 +219,10 @@ def profile():
         conn.close()
         session.pop('user_id', None)
         return redirect(url_for('login'))
+    
+    # Process user's profile photo
+    user_dict = dict(user)
+    user_dict['profile_photo'] = get_profile_photo(user['id'], user['profile_photo'])
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
@@ -184,7 +231,7 @@ def profile():
         if not username:
             flash('Informe um nome para o perfil.')
             conn.close()
-            return render_template('profile.html', user=user)
+            return render_template('profile.html', user=user_dict)
 
         existing = conn.execute(
             'SELECT id FROM users WHERE username = ? AND id <> ?',
@@ -193,21 +240,23 @@ def profile():
         if existing:
             flash('Esse nome de usuario ja esta em uso.')
             conn.close()
-            return render_template('profile.html', user=user)
+            return render_template('profile.html', user=user_dict)
 
         photo = request.files.get('profile_photo')
         if photo and photo.filename:
             if not allowed_profile_photo(photo.filename):
                 flash('Envie uma imagem PNG, JPG, JPEG, GIF ou WEBP.')
                 conn.close()
-                return render_template('profile.html', user=user)
+                return render_template('profile.html', user=user_dict)
 
-            os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-            original_name = secure_filename(photo.filename)
-            extension = original_name.rsplit('.', 1)[1].lower()
-            filename = f"profile-{session['user_id']}-{uuid4().hex}.{extension}"
-            photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            photo_path = f"uploads/{filename}"
+            # Convert image to base64
+            photo_data = photo.read()
+            photo_base64 = base64.b64encode(photo_data).decode('utf-8')
+            extension = photo.filename.rsplit('.', 1)[1].lower()
+            photo_path = f"data:image/{extension};base64,{photo_base64}"
+            
+            # Cache in memory
+            profile_image_cache[session['user_id']] = photo_path
 
         conn.execute(
             'UPDATE users SET username = ?, profile_photo = ? WHERE id = ?',
@@ -219,7 +268,7 @@ def profile():
         return redirect(url_for('profile'))
 
     conn.close()
-    return render_template('profile.html', user=user)
+    return render_template('profile.html', user=user_dict)
 
 @app.route('/pull_games')
 def pull_games():
@@ -299,8 +348,16 @@ def bet():
 def leaderboard():
     conn = database.get_db()
     users = conn.execute('SELECT * FROM users ORDER BY correct_bets DESC, username ASC').fetchall()
+    
+    # Process users to use cached profile photos
+    users_with_photos = []
+    for u in users:
+        user_dict = dict(u)
+        user_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
+        users_with_photos.append(user_dict)
+    
     conn.close()
-    return render_template('leaderboard.html', users=users)
+    return render_template('leaderboard.html', users=users_with_photos)
 
 @app.route('/historico')
 def historico():
@@ -309,6 +366,10 @@ def historico():
 
     conn = database.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    
+    # Process user's profile photo
+    user_dict = dict(user)
+    user_dict['profile_photo'] = get_profile_photo(user['id'], user['profile_photo'])
 
     bets = conn.execute('''
         SELECT b.bet_type, b.prediction, b.status,
@@ -326,7 +387,7 @@ def historico():
     pending = sum(1 for b in bets if b['status'] == 'pending')
 
     conn.close()
-    return render_template('historico.html', user=user, bets=bets,
+    return render_template('historico.html', user=user_dict, bets=bets,
                            total=total, won=won, lost=lost, pending=pending)
 
 if __name__ == '__main__':

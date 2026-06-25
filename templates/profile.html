@@ -6,7 +6,7 @@
 <div class="card profile-card">
     <div class="profile-preview">
         {% if user.profile_photo %}
-            <img class="profile-photo-large" src="{{ url_for('static', filename=user.profile_photo) }}" alt="{{ user.username }}">
+            <img class="profile-photo-large" src="{{ user.profile_photo }}" alt="{{ user.username }}">
         {% else %}
             <span class="profile-photo-large profile-photo-fallback">{{ user.username[:1].upper() }}</span>
         {% endif %}

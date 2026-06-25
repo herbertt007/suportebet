@@ -6,7 +6,7 @@
 <div class="user-header-bar">
     <div class="user-info">
         {% if user.profile_photo %}
-            <img class="profile-avatar" src="{{ url_for('static', filename=user.profile_photo) }}" alt="{{ user.username }}">
+            <img class="profile-avatar" src="{{ user.profile_photo }}" alt="{{ user.username }}">
         {% else %}
             <span class="profile-avatar profile-avatar-fallback">{{ user.username[:1].upper() }}</span>
         {% endif %}
@@ -39,7 +39,7 @@
                     <li class="ranking-item">
                         <span class="ranking-pos {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span>
                         {% if u.profile_photo %}
-                            <img class="mini-avatar" src="{{ url_for('static', filename=u.profile_photo) }}" alt="{{ u.username }}">
+                            <img class="mini-avatar" src="{{ u.profile_photo }}" alt="{{ u.username }}">
                         {% else %}
                             <span class="mini-avatar mini-avatar-fallback">{{ u.username[:1].upper() }}</span>
                         {% endif %}
@@ -246,7 +246,7 @@
                             <li class="history-bet-item">
                                 <div class="history-bettor">
                                     {% if b.profile_photo %}
-                                        <img class="mini-avatar" src="{{ url_for('static', filename=b.profile_photo) }}" alt="{{ b.username }}">
+                                        <img class="mini-avatar" src="{{ b.profile_photo }}" alt="{{ b.username }}">
                                     {% else %}
                                         <span class="mini-avatar mini-avatar-fallback">{{ b.username[:1].upper() }}</span>
                                     {% endif %}

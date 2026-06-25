@@ -22,7 +22,7 @@
                 <td>
                     <span class="leaderboard-user">
                         {% if u.profile_photo %}
-                            <img class="mini-avatar" src="{{ url_for('static', filename=u.profile_photo) }}" alt="{{ u.username }}">
+                            <img class="mini-avatar" src="{{ u.profile_photo }}" alt="{{ u.username }}">
                         {% else %}
                             <span class="mini-avatar mini-avatar-fallback">{{ u.username[:1].upper() }}</span>
                         {% endif %}
