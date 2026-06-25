@@ -47,6 +47,24 @@ ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 def allowed_profile_photo(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
 
+def user_is_admin(user_row):
+    user = dict(user_row) if user_row else {}
+    return (
+        user.get('is_admin') in (1, True)
+        or (user.get('username') or '').strip().lower() == database.ADMIN_USERNAME
+    )
+
+def require_admin():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    conn = database.get_db()
+    user = conn.execute('SELECT username, is_admin FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+    conn.close()
+    if not user_is_admin(user):
+        flash('Acesso restrito ao administrador.', 'error')
+        return redirect(url_for('index'))
+    return None
+
 @app.errorhandler(413)
 def request_entity_too_large(error):
     flash('A imagem e muito grande. Envie uma foto com ate 16 MB.')
@@ -76,7 +94,7 @@ def index():
     # Process current user's profile photo and admin status
     user_dict = dict(user)
     user_dict['profile_photo'] = get_profile_photo(user['id'], user['profile_photo'])
-    user_dict['is_admin'] = user.get('is_admin', 0) == 1
+    user_dict['is_admin'] = user_is_admin(user)
     
     today_local = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
     games = conn.execute(
@@ -283,6 +301,9 @@ def profile():
 
 @app.route('/pull_games')
 def pull_games():
+    denied = require_admin()
+    if denied:
+        return denied
     success = sync_api.pull_new_games()
     if success:
         flash('Novos jogos da Copa foram puxados com sucesso!', 'success')
@@ -292,6 +313,9 @@ def pull_games():
 
 @app.route('/resolve_games')
 def resolve_games():
+    denied = require_admin()
+    if denied:
+        return denied
     success = sync_api.resolve_pending_games()
     if success:
         flash('Placares atualizados e acertos contabilizados!', 'success')

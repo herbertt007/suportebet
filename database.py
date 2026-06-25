@@ -3,6 +3,7 @@ import os
 
 DATABASE = 'bets.db'
 DATABASE_URL = os.environ.get('DATABASE_URL')
+ADMIN_USERNAME = 'herbert'
 
 if DATABASE_URL:
     import psycopg2
@@ -98,6 +99,8 @@ def init_db():
     
     if 'is_admin' not in column_names:
         conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
+
+    ensure_admin_user(conn)
     
     conn.execute('''
         CREATE TABLE IF NOT EXISTS games (
@@ -150,6 +153,17 @@ def init_db():
     
     conn.commit()
     conn.close()
+
+def ensure_admin_user(conn):
+    """Garante que apenas o usuario herbert seja administrador."""
+    conn.execute(
+        'UPDATE users SET is_admin = 0 WHERE LOWER(username) <> ?',
+        (ADMIN_USERNAME,)
+    )
+    conn.execute(
+        'UPDATE users SET is_admin = 1 WHERE LOWER(username) = ?',
+        (ADMIN_USERNAME,)
+    )
 
 if __name__ == "__main__":
     init_db()
