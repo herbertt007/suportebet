@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" style="display: inline-block; margin-bottom: 1rem;">&larr; Voltar para Jogos</a>
+
+<div class="card profile-card">
+    <div class="profile-preview">
+        {% if user.profile_photo %}
+            <img class="profile-photo-large" src="{{ url_for('static', filename=user.profile_photo) }}" alt="{{ user.username }}">
+        {% else %}
+            <span class="profile-photo-large profile-photo-fallback">{{ user.username[:1].upper() }}</span>
+        {% endif %}
+        <div>
+            <h2>Editar Perfil</h2>
+            <p class="profile-muted">Atualize seu nome e escolha uma foto para aparecer no ranking e nas apostas.</p>
+        </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="profile-form" id="profile-form">
+        <label>
+            Nome de usuario
+            <input type="text" name="username" value="{{ user.username }}" required autocomplete="off" maxlength="40">
+        </label>
+
+        <label>
+            Foto de perfil
+            <input type="file" name="profile_photo" id="profile-photo-input" accept="image/png,image/jpeg,image/gif,image/webp">
+        </label>
+        <p class="profile-muted">Tamanho maximo: 16 MB.</p>
+
+        <button type="submit" class="btn">Salvar Perfil</button>
+    </form>
+</div>
+
+<script>
+const profileForm = document.getElementById('profile-form');
+const profilePhotoInput = document.getElementById('profile-photo-input');
+
+profileForm.addEventListener('submit', async (event) => {
+    const file = profilePhotoInput.files[0];
+    if (!file || !file.type.startsWith('image/') || file.size <= 900 * 1024) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const image = new Image();
+    image.src = URL.createObjectURL(file);
+    await image.decode();
+
+    const maxSize = 1024;
+    const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(image.src);
+
+    canvas.toBlob((blob) => {
+        if (!blob) {
+            profileForm.submit();
+            return;
+        }
+
+        const compressedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), {
+            type: 'image/jpeg',
+            lastModified: Date.now()
+        });
+        const transfer = new DataTransfer();
+        transfer.items.add(compressedFile);
+        profilePhotoInput.files = transfer.files;
+        profileForm.submit();
+    }, 'image/jpeg', 0.86);
+});
+</script>
+{% endblock %}

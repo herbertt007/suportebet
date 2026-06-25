@@ -1,0 +1,93 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<a href="{{ url_for('index') }}" style="display: inline-block; margin-bottom: 1rem;">&larr; Voltar para Jogos</a>
+
+<div class="card">
+    <div class="game-date" style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">{{ game.date }}</div>
+    
+    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 1.5rem;">
+        {% if game.team_a_crest %}
+            <img src="{{ game.team_a_crest }}" alt="Bandeira" style="width: 40px; height: 30px; object-fit: contain;">
+        {% endif %}
+        <h2 style="margin: 0;">{{ game.team_a }} <span style="color: var(--primary-color);">vs</span> {{ game.team_b }}</h2>
+        {% if game.team_b_crest %}
+            <img src="{{ game.team_b_crest }}" alt="Bandeira" style="width: 40px; height: 30px; object-fit: contain;">
+        {% endif %}
+    </div>
+    
+    {% if game.status == 'finished' %}
+        <div style="margin-top: 1rem; padding: 1rem; background: #2a2a2a; border-radius: 8px;">
+            <h3>Resultado Oficial</h3>
+            <p>Vencedor: <strong>{{ game.winner }}</strong></p>
+            <p>Total de Gols: <strong>{{ game.goals_total }}</strong></p>
+        </div>
+    {% else %}
+        <span class="status-pending">Pendente</span>
+    {% endif %}
+</div>
+
+{% if game.status != 'finished' %}
+<div class="card">
+    <h3>Fazer uma Aposta</h3>
+    <form method="POST" style="margin-top: 1rem;">
+        <select name="bet_type" id="bet_type" required onchange="updatePredictionOptions()">
+            <option value="">Selecione o tipo de aposta...</option>
+            <option value="winner">Vencedor da Partida</option>
+            <option value="goals">Total de Gols</option>
+        </select>
+        
+        <div id="prediction_container" style="display: none;">
+            <label id="prediction_label" style="display: block; margin-bottom: 0.5rem;"></label>
+            <input type="text" name="prediction" id="prediction_input" required>
+        </div>
+        
+        <button type="submit" class="btn">Apostar</button>
+    </form>
+</div>
+
+<script>
+function updatePredictionOptions() {
+    const type = document.getElementById('bet_type').value;
+    const container = document.getElementById('prediction_container');
+    const label = document.getElementById('prediction_label');
+    const input = document.getElementById('prediction_input');
+    
+    if (!type) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    if (type === 'winner') {
+        label.innerText = 'Quem vai vencer? (Digite team_a, team_b ou draw)';
+        input.placeholder = "Ex: team_a";
+    } else {
+        label.innerText = 'Digite a quantidade exata (número):';
+        input.placeholder = "Ex: 3";
+        input.type = "number";
+    }
+}
+</script>
+{% endif %}
+
+<div class="card">
+    <h3>Suas Apostas para este Jogo</h3>
+    {% if bets %}
+        <div class="bets-list">
+            {% for bet in bets %}
+                <div class="bet-item">
+                    <div>
+                        <strong>Tipo:</strong> {{ bet.bet_type }} | <strong>Palpite:</strong> {{ bet.prediction }}
+                    </div>
+                    <div class="status-{{ bet.status }}">
+                        {{ bet.status | upper }}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p style="margin-top: 1rem; color: var(--text-muted);">Você ainda não apostou neste jogo.</p>
+    {% endif %}
+</div>
+{% endblock %}
