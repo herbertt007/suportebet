@@ -40,21 +40,35 @@ def index():
         (f"{today_local}%",)
     ).fetchall()
     users = conn.execute('SELECT username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
-    
+
+    # Determinar quais jogos já começaram (bloquear palpites)
+    now_local = datetime.utcnow() - timedelta(hours=3)
+    locked_games = set()
+    for game in games:
+        try:
+            game_dt = datetime.strptime(game['date'], '%Y-%m-%d às %H:%M')
+            if now_local >= game_dt:
+                locked_games.add(game['id'])
+        except (ValueError, TypeError):
+            pass
+
     # Buscar apostas do usuário atual para marcar quais já foram feitas
     user_bets = conn.execute(
         "SELECT game_id, bet_type, prediction, status FROM bets WHERE user_id = ?",
         (session['user_id'],)
     ).fetchall()
     
-    # Criar dicionário: {game_id: {bet_type: prediction}}
+    # Criar dicionário: {game_id: {bet_type: prediction}} e status
     bets_dict = {}
+    bets_status = {}
     for b in user_bets:
         if b['game_id'] not in bets_dict:
             bets_dict[b['game_id']] = {}
+            bets_status[b['game_id']] = {}
         bets_dict[b['game_id']][b['bet_type']] = b['prediction']
+        bets_status[b['game_id']][b['bet_type']] = b['status']
     
-    # Apostas de todos os usuários agrupadas por jogo
+    # Apostas de todos os usuários agrupadas por jogo (somente hoje)
     bet_history = conn.execute('''
         SELECT g.id as game_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
@@ -62,8 +76,9 @@ def index():
         FROM bets b
         JOIN games g ON b.game_id = g.id
         JOIN users u ON b.user_id = u.id
+        WHERE g.date LIKE ?
         ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC, u.username ASC
-    ''').fetchall()
+    ''', (f"{today_local}%",)).fetchall()
 
     user_bet_history = conn.execute('''
         SELECT g.id as game_id, b.bet_type, b.prediction, b.status,
@@ -71,9 +86,9 @@ def index():
                g.winner, g.goals_total, g.team_a_goals, g.team_b_goals
         FROM bets b
         JOIN games g ON b.game_id = g.id
-        WHERE b.user_id = ?
+        WHERE b.user_id = ? AND g.date LIKE ?
         ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC
-    ''', (session['user_id'],)).fetchall()
+    ''', (session['user_id'], f"{today_local}%")).fetchall()
 
     bet_games_map = {}
     for bet_item in bet_history:
@@ -102,6 +117,8 @@ def index():
         games=games,
         users=users,
         bets_dict=bets_dict,
+        bets_status=bets_status,
+        locked_games=locked_games,
         bet_games=bet_games,
         user_bet_history=user_bet_history
     )
@@ -239,10 +256,20 @@ def bet():
     conn = database.get_db()
     
     # Verificar se o jogo ainda está pendente
-    game = conn.execute('SELECT status FROM games WHERE id = ?', (game_id,)).fetchone()
+    game = conn.execute('SELECT status, date FROM games WHERE id = ?', (game_id,)).fetchone()
     if not game or game['status'] != 'pending':
         conn.close()
         return jsonify({'success': False, 'message': 'Jogo não disponível para apostas'})
+
+    # Verificar se o jogo já começou pelo horário
+    try:
+        game_datetime = datetime.strptime(game['date'], '%Y-%m-%d às %H:%M')
+        now_local = datetime.utcnow() - timedelta(hours=3)
+        if now_local >= game_datetime:
+            conn.close()
+            return jsonify({'success': False, 'message': 'Jogo já iniciou! Não é possível registrar palpites.'})
+    except (ValueError, TypeError):
+        pass
 
     # Verificar se já apostou nesse tipo para esse jogo
     existing = conn.execute(
@@ -274,6 +301,33 @@ def leaderboard():
     users = conn.execute('SELECT * FROM users ORDER BY correct_bets DESC, username ASC').fetchall()
     conn.close()
     return render_template('leaderboard.html', users=users)
+
+@app.route('/historico')
+def historico():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    conn = database.get_db()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+
+    bets = conn.execute('''
+        SELECT b.bet_type, b.prediction, b.status,
+               g.team_a, g.team_b, g.date, g.status as game_status,
+               g.team_a_goals, g.team_b_goals, g.team_a_crest, g.team_b_crest
+        FROM bets b
+        JOIN games g ON b.game_id = g.id
+        WHERE b.user_id = ?
+        ORDER BY g.date DESC, g.team_a ASC
+    ''', (session['user_id'],)).fetchall()
+
+    total = len(bets)
+    won = sum(1 for b in bets if b['status'] == 'won')
+    lost = sum(1 for b in bets if b['status'] == 'lost')
+    pending = sum(1 for b in bets if b['status'] == 'pending')
+
+    conn.close()
+    return render_template('historico.html', user=user, bets=bets,
+                           total=total, won=won, lost=lost, pending=pending)
 
 if __name__ == '__main__':
     app.run(debug=True)

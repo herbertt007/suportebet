@@ -69,8 +69,10 @@
                     <span class="match-time">🕐 {{ game.date }}</span>
                     {% if game.status == 'finished' %}
                         <span class="match-status finished-badge">Finalizado</span>
+                    {% elif game.id in locked_games %}
+                        <span class="match-status started-badge">Em andamento</span>
                     {% else %}
-                        <span class="match-status live-badge">Disponível</span>
+                        <span class="match-status live-badge">Disponivel</span>
                     {% endif %}
                 </div>
 
@@ -93,27 +95,49 @@
                             {% set score_bet = bets_dict.get(game.id, {}).get('score', '') %}
                             {% set score_a = score_bet.split('-')[0] if score_bet else '-' %}
                             {% set score_b = score_bet.split('-')[1] if score_bet and '-' in score_bet else '-' %}
+                            {% set bet_result = bets_status.get(game.id, {}).get('score', '') %}
                             <div class="finished-score-grid">
                                 <div class="finished-score-block">
-                                    <div class="result-label">Placar real</div>
+                                    <div class="result-label">Placar Real</div>
                                     <div class="result-score real-score">
                                         {% if game.team_a_goals is not none and game.team_b_goals is not none %}
                                             {{ game.team_a_goals }} x {{ game.team_b_goals }}
                                         {% else %}
-                                            {{ game.goals_total or 0 }} gols
+                                            -
                                         {% endif %}
                                     </div>
                                 </div>
                                 <div class="finished-score-block">
-                                    <div class="result-label">Seu palpite</div>
+                                    <div class="result-label">Seu Palpite</div>
                                     <div class="result-score prediction-score">
-                                        {% if score_bet %}{{ score_a }} x {{ score_b }}{% else %}Sem palpite{% endif %}
+                                        {% if score_bet %}{{ score_a }} x {{ score_b }}{% else %}--{% endif %}
                                     </div>
                                 </div>
                             </div>
-                            <div class="result-goals">
-                                {% if score_bet %}Palpite registrado{% else %}Nenhum palpite registrado{% endif %}
+                            <div class="bet-result-tag {% if bet_result == 'won' %}tag-won{% elif bet_result == 'lost' %}tag-lost{% endif %}">
+                                {% if bet_result == 'won' %}
+                                    Acertou o placar!
+                                {% elif bet_result == 'lost' %}
+                                    Errou o placar
+                                {% elif score_bet %}
+                                    Aguardando
+                                {% else %}
+                                    Sem palpite
+                                {% endif %}
                             </div>
+                        </div>
+                    {% elif game.id in locked_games %}
+                        <div class="result-box">
+                            {% set score_bet = bets_dict.get(game.id, {}).get('score', '') %}
+                            {% set score_a = score_bet.split('-')[0] if score_bet else '' %}
+                            {% set score_b = score_bet.split('-')[1] if score_bet and '-' in score_bet else '' %}
+                            {% if score_bet %}
+                                <span class="bet-label">Seu Palpite</span>
+                                <div class="locked-score">{{ score_a }} x {{ score_b }}</div>
+                                <div class="bet-result-tag">Palpite registrado</div>
+                            {% else %}
+                                <div class="locked-msg">Palpite encerrado</div>
+                            {% endif %}
                         </div>
                     {% else %}
                         <div class="bet-section">
@@ -201,6 +225,7 @@
                         <p>Voce ainda nao fez palpites.</p>
                     </div>
                 {% endif %}
+                <a href="{{ url_for('historico') }}" class="see-all-link" style="margin-top:0.6rem;">Ver Historico Completo &rarr;</a>
             </section>
 
             <h3 class="history-subtitle all-bets-title">Apostas dos Usuarios</h3>
@@ -433,6 +458,9 @@
 .match-status { font-size: 0.72rem; font-weight: 600; border-radius: 20px; padding: 0.12rem 0.55rem; }
 .finished-badge { background: #222; color: #666; }
 .live-badge { background: rgba(211,47,47,0.15); color: #ef9a9a; border: 1px solid #c62828; }
+.started-badge { background: rgba(255,152,0,0.15); color: #ffb74d; border: 1px solid #f57c00; }
+.locked-score { font-size: 1.15rem; font-weight: 700; color: #fff; margin: 0.3rem 0; }
+.locked-msg { font-size: 0.85rem; color: #666; font-style: italic; }
 .match-body { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; }
 .teams-col { flex: 1; }
 .team-row { display: flex; align-items: center; gap: 8px; }
@@ -454,6 +482,29 @@
 .real-score { color: #fff; font-size: 1.05rem; }
 .prediction-score { color: #ef9a9a; font-size: 1.05rem; }
 .result-goals { font-size: 0.72rem; color: #555; }
+
+/* Indicador de acerto/erro */
+.bet-result-tag {
+    display: inline-block;
+    margin-top: 0.5rem;
+    padding: 0.2rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #888;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #333;
+}
+.bet-result-tag.tag-won {
+    color: #4caf50;
+    background: rgba(76,175,80,0.12);
+    border-color: rgba(76,175,80,0.4);
+}
+.bet-result-tag.tag-lost {
+    color: #ef5350;
+    background: rgba(239,83,80,0.12);
+    border-color: rgba(239,83,80,0.4);
+}
 
 /* ====== Palpite de placar ====== */
 .bet-section { min-width: 160px; }

@@ -1,0 +1,255 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<div class="historico-header">
+    <h2 class="historico-page-title">Meu Historico de Palpites</h2>
+    <div class="historico-stats">
+        <span class="hist-stat"><span class="hist-stat-num">{{ total }}</span> palpites</span>
+        <span class="hist-stat stat-won"><span class="hist-stat-num">{{ won }}</span> acertos</span>
+        <span class="hist-stat stat-lost"><span class="hist-stat-num">{{ lost }}</span> erros</span>
+        <span class="hist-stat stat-pending"><span class="hist-stat-num">{{ pending }}</span> pendentes</span>
+    </div>
+</div>
+
+{% if bets %}
+<div class="historico-list">
+    {% for b in bets %}
+    <div class="historico-card {% if b.status == 'won' %}card-won{% elif b.status == 'lost' %}card-lost{% endif %}">
+        <div class="historico-card-header">
+            <div class="historico-teams">
+                <div class="historico-team">
+                    {% if b.team_a_crest %}<img src="{{ b.team_a_crest }}" class="hist-flag" alt="{{ b.team_a }}">{% endif %}
+                    <span>{{ b.team_a }}</span>
+                </div>
+                <span class="historico-vs">x</span>
+                <div class="historico-team">
+                    {% if b.team_b_crest %}<img src="{{ b.team_b_crest }}" class="hist-flag" alt="{{ b.team_b }}">{% endif %}
+                    <span>{{ b.team_b }}</span>
+                </div>
+            </div>
+            <div class="historico-meta">
+                <span class="historico-date">{{ b.date }}</span>
+                {% if b.game_status == 'finished' %}
+                    <span class="hist-badge finished-bg">Finalizado</span>
+                {% else %}
+                    <span class="hist-badge pending-bg">Pendente</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="historico-scores">
+            <div class="historico-score-block">
+                <div class="hist-label">Seu Palpite</div>
+                <div class="historico-score hist-prediction">
+                    {{ b.prediction.replace('-', ' x ') }}
+                </div>
+            </div>
+            {% if b.game_status == 'finished' %}
+            <div class="historico-score-block">
+                <div class="hist-label">Placar Real</div>
+                <div class="historico-score hist-real">
+                    {% if b.team_a_goals is not none and b.team_b_goals is not none %}
+                        {{ b.team_a_goals }} x {{ b.team_b_goals }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="historico-result">
+            {% if b.status == 'won' %}
+                <span class="hist-result-tag tag-won">Acertou o placar!</span>
+            {% elif b.status == 'lost' %}
+                <span class="hist-result-tag tag-lost">Errou o placar</span>
+            {% else %}
+                <span class="hist-result-tag">Aguardando resultado</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="historico-empty">
+    <div class="historico-empty-icon">📋</div>
+    <p>Voce ainda nao fez nenhum palpite.</p>
+    <p class="historico-empty-sub">Volte para <a href="{{ url_for('index') }}">Jogos</a> e faca seus palpites!</p>
+</div>
+{% endif %}
+
+<style>
+.historico-page-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 0.75rem;
+}
+.historico-header {
+    margin-bottom: 1.5rem;
+}
+.historico-stats {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+.hist-stat {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: #aaa;
+}
+.hist-stat-num {
+    font-weight: 800;
+    font-size: 1.1rem;
+    margin-right: 0.3rem;
+    color: #fff;
+}
+.hist-stat.stat-won .hist-stat-num { color: #4caf50; }
+.hist-stat.stat-lost .hist-stat-num { color: #ef5350; }
+.hist-stat.stat-pending .hist-stat-num { color: #ff9800; }
+
+.historico-list {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 720px;
+}
+.historico-card {
+    background: #1c1c1c;
+    border: 1px solid #2c2c2c;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    transition: border-color 0.2s;
+}
+.historico-card:hover { border-color: #3a3a3a; }
+.historico-card.card-won { border-left: 3px solid #4caf50; }
+.historico-card.card-lost { border-left: 3px solid #ef5350; }
+
+.historico-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.historico-teams {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.historico-team {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+}
+.hist-flag {
+    width: 24px;
+    height: 17px;
+    object-fit: contain;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+.historico-vs {
+    color: #555;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+.historico-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+}
+.historico-date {
+    font-size: 0.75rem;
+    color: #777;
+}
+.hist-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 20px;
+    padding: 0.12rem 0.55rem;
+}
+.finished-bg { background: #222; color: #666; }
+.pending-bg { background: rgba(211,47,47,0.15); color: #ef9a9a; border: 1px solid #c62828; }
+
+.historico-scores {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+    margin-bottom: 0.65rem;
+}
+.historico-score-block {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.5rem 0.65rem;
+    text-align: center;
+}
+.hist-label {
+    font-size: 0.68rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.historico-score {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-top: 0.25rem;
+}
+.hist-prediction { color: #ef9a9a; }
+.hist-real { color: #fff; }
+
+.historico-result {
+    text-align: right;
+}
+.hist-result-tag {
+    display: inline-block;
+    padding: 0.2rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #888;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid #333;
+}
+.hist-result-tag.tag-won {
+    color: #4caf50;
+    background: rgba(76,175,80,0.12);
+    border-color: rgba(76,175,80,0.4);
+}
+.hist-result-tag.tag-lost {
+    color: #ef5350;
+    background: rgba(239,83,80,0.12);
+    border-color: rgba(239,83,80,0.4);
+}
+
+.historico-empty {
+    text-align: center;
+    padding: 3rem;
+    background: #1c1c1c;
+    border: 1px dashed #2a2a2a;
+    border-radius: 12px;
+    color: #555;
+    max-width: 720px;
+}
+.historico-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.historico-empty-sub { font-size: 0.82rem; margin-top: 0.4rem; }
+
+@media (max-width: 700px) {
+    .historico-scores { grid-template-columns: 1fr; }
+    .historico-card-header { flex-direction: column; }
+    .historico-meta { align-items: flex-start; flex-direction: row; gap: 0.5rem; }
+    .historico-stats { gap: 0.4rem; }
+    .hist-stat { padding: 0.4rem 0.7rem; font-size: 0.8rem; }
+}
+</style>
+
+{% endblock %}
