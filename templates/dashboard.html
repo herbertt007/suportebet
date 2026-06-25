@@ -10,14 +10,11 @@
         {% else %}
             <span class="profile-avatar profile-avatar-fallback">{{ user.username[:1].upper() }}</span>
         {% endif %}
-        <span class="user-greeting">👋 {{ user.username }}</span>
-        <span class="stat-badge">✅ {{ user.correct_bets }} acertos</span>
+        <span class="user-greeting">{{ user.username }}</span>
+        <span class="stat-badge">{{ user.correct_bets }} acertos</span>
     </div>
 
-    <h2 class="world-cup-title">
-        <span class="world-cup-globe" aria-hidden="true">🌎</span>
-        COPA DO MUNDO
-    </h2>
+    <h2 class="world-cup-title">COPA DO MUNDO</h2>
 
     {% if user.is_admin %}
     <div class="admin-actions">
@@ -316,9 +313,9 @@
 /* ====== Header ====== */
 .user-header-bar {
     position: relative;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
     background:
         linear-gradient(135deg, rgba(211,47,47,0.96) 0%, rgba(120,12,18,0.98) 43%, rgba(55,0,7,1) 100%);
     border: 1px solid rgba(239,83,80,0.45);
@@ -339,28 +336,24 @@
     pointer-events: none;
 }
 .world-cup-title {
-    position: relative;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     z-index: 1;
     margin: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
     color: #fff;
     font-size: 1.16rem;
     font-weight: 900;
     line-height: 1;
     text-align: center;
     text-transform: uppercase;
-}
-.world-cup-globe {
-    color: #42d6d0;
-    font-size: 0.9rem;
-    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.35));
+    pointer-events: none;
+    white-space: nowrap;
 }
 .user-info {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     display: flex;
     align-items: center;
     gap: 0.6rem;
@@ -383,10 +376,11 @@
 }
 .admin-actions {
     position: relative;
-    z-index: 1;
+    z-index: 2;
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;
+    margin-left: auto;
 }
 .admin-btn {
     background: #e33337;
@@ -731,16 +725,25 @@
 }
 @media (max-width: 700px) {
     .user-header-bar {
-        grid-template-columns: auto 1fr;
+        flex-wrap: wrap;
         min-height: 64px;
+        padding-top: 0.85rem;
+        padding-bottom: 0.85rem;
     }
     .world-cup-title {
-        justify-content: flex-start;
+        position: static;
+        transform: none;
+        order: 3;
+        width: 100%;
+        margin-top: 0.35rem;
         font-size: 1rem;
     }
     .admin-actions {
-        grid-column: 1 / -1;
+        width: 100%;
+        order: 4;
         justify-content: stretch;
+        margin-left: 0;
+        margin-top: 0.35rem;
     }
     .admin-btn {
         flex: 1;
