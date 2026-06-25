@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from werkzeug.utils import secure_filename
 import os
+from datetime import datetime, timedelta
 from uuid import uuid4
 import database
 import sync_api
@@ -33,12 +34,16 @@ def index():
     
     conn = database.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
-    games = conn.execute('SELECT * FROM games ORDER BY date ASC').fetchall()
+    today_local = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
+    games = conn.execute(
+        "SELECT * FROM games WHERE date LIKE ? ORDER BY date ASC",
+        (f"{today_local}%",)
+    ).fetchall()
     users = conn.execute('SELECT username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
     
     # Buscar apostas do usuário atual para marcar quais já foram feitas
     user_bets = conn.execute(
-        "SELECT game_id, bet_type, prediction FROM bets WHERE user_id = ? AND status = 'pending'",
+        "SELECT game_id, bet_type, prediction, status FROM bets WHERE user_id = ?",
         (session['user_id'],)
     ).fetchall()
     
@@ -53,12 +58,22 @@ def index():
     bet_history = conn.execute('''
         SELECT g.id as game_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
-               g.winner, g.goals_total
+               g.winner, g.goals_total, g.team_a_goals, g.team_b_goals
         FROM bets b
         JOIN games g ON b.game_id = g.id
         JOIN users u ON b.user_id = u.id
-        ORDER BY g.date ASC, g.team_a ASC, g.team_b ASC, u.username ASC
+        ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC, u.username ASC
     ''').fetchall()
+
+    user_bet_history = conn.execute('''
+        SELECT g.id as game_id, b.bet_type, b.prediction, b.status,
+               g.team_a, g.team_b, g.date, g.status as game_status,
+               g.winner, g.goals_total, g.team_a_goals, g.team_b_goals
+        FROM bets b
+        JOIN games g ON b.game_id = g.id
+        WHERE b.user_id = ?
+        ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC
+    ''', (session['user_id'],)).fetchall()
 
     bet_games_map = {}
     for bet_item in bet_history:
@@ -72,6 +87,8 @@ def index():
                 'game_status': bet_item['game_status'],
                 'winner': bet_item['winner'],
                 'goals_total': bet_item['goals_total'],
+                'team_a_goals': bet_item['team_a_goals'],
+                'team_b_goals': bet_item['team_b_goals'],
                 'bets': []
             }
         bet_games_map[game_id]['bets'].append(bet_item)
@@ -79,7 +96,15 @@ def index():
     bet_games = list(bet_games_map.values())
     
     conn.close()
-    return render_template('dashboard.html', user=user, games=games, users=users, bets_dict=bets_dict, bet_games=bet_games)
+    return render_template(
+        'dashboard.html',
+        user=user,
+        games=games,
+        users=users,
+        bets_dict=bets_dict,
+        bet_games=bet_games,
+        user_bet_history=user_bet_history
+    )
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

@@ -166,9 +166,10 @@ def resolve_pending_games():
         
         conn.execute('''
             UPDATE games 
-            SET status = 'finished', winner = ?, goals_total = ?, shots_total = 0, cards_total = 0, finishes_total = 0
+            SET status = 'finished', winner = ?, goals_total = ?, team_a_goals = ?, team_b_goals = ?,
+                shots_total = 0, cards_total = 0, finishes_total = 0
             WHERE id = ?
-        ''', (winner, goals_total, game_id))
+        ''', (winner, goals_total, home_goals, away_goals, game_id))
         
         resolve_bets(conn, game_id, winner, goals_total, home_goals, away_goals)
         
@@ -189,20 +190,6 @@ def resolve_bets(conn, game_id, winner, goals_total, home_goals, away_goals):
             if predicted == actual:
                 won = True
                 points_awarded = 20  # Placar exato vale mais pontos!
-            else:
-                # Verifica se pelo menos acertou o vencedor
-                parts = predicted.split('-')
-                if len(parts) == 2:
-                    p_home = int(parts[0])
-                    p_away = int(parts[1])
-                    predicted_winner = 'draw'
-                    if p_home > p_away:
-                        predicted_winner = 'team_a'
-                    elif p_away > p_home:
-                        predicted_winner = 'team_b'
-                    if predicted_winner == winner:
-                        won = True
-                        points_awarded = 5  # Acertou só o vencedor
         elif bet['bet_type'] == 'winner' and bet['prediction'] == winner:
             won = True
             points_awarded = 10

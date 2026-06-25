@@ -106,6 +106,8 @@ def init_db():
             winner TEXT,
             shots_total INTEGER,
             goals_total INTEGER,
+            team_a_goals INTEGER,
+            team_b_goals INTEGER,
             cards_total INTEGER,
             finishes_total INTEGER,
             api_id INTEGER,
@@ -113,6 +115,22 @@ def init_db():
             team_b_crest TEXT
         )
     ''')
+
+    if conn.is_postgres:
+        columns = conn.execute("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'games'
+        """).fetchall()
+        game_column_names = {row['column_name'] for row in columns}
+    else:
+        columns = conn.execute('PRAGMA table_info(games)').fetchall()
+        game_column_names = {row['name'] for row in columns}
+
+    if 'team_a_goals' not in game_column_names:
+        conn.execute('ALTER TABLE games ADD COLUMN team_a_goals INTEGER')
+    if 'team_b_goals' not in game_column_names:
+        conn.execute('ALTER TABLE games ADD COLUMN team_b_goals INTEGER')
     
     conn.execute('''
         CREATE TABLE IF NOT EXISTS bets (

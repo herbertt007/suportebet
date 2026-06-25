@@ -90,13 +90,30 @@
                     <!-- Resultado ou Palpite -->
                     {% if game.status == 'finished' %}
                         <div class="result-box">
-                            <div class="result-label">Resultado Final</div>
-                            <div class="result-score">
-                                {% if game.winner == 'team_a' %}{{ game.team_a }} venceu
-                                {% elif game.winner == 'team_b' %}{{ game.team_b }} venceu
-                                {% else %}Empate{% endif %}
+                            {% set score_bet = bets_dict.get(game.id, {}).get('score', '') %}
+                            {% set score_a = score_bet.split('-')[0] if score_bet else '-' %}
+                            {% set score_b = score_bet.split('-')[1] if score_bet and '-' in score_bet else '-' %}
+                            <div class="finished-score-grid">
+                                <div class="finished-score-block">
+                                    <div class="result-label">Placar real</div>
+                                    <div class="result-score real-score">
+                                        {% if game.team_a_goals is not none and game.team_b_goals is not none %}
+                                            {{ game.team_a_goals }} x {{ game.team_b_goals }}
+                                        {% else %}
+                                            {{ game.goals_total or 0 }} gols
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="finished-score-block">
+                                    <div class="result-label">Seu palpite</div>
+                                    <div class="result-score prediction-score">
+                                        {% if score_bet %}{{ score_a }} x {{ score_b }}{% else %}Sem palpite{% endif %}
+                                    </div>
+                                </div>
                             </div>
-                            <div class="result-goals">{{ game.goals_total or 0 }} gols no total</div>
+                            <div class="result-goals">
+                                {% if score_bet %}Palpite registrado{% else %}Nenhum palpite registrado{% endif %}
+                            </div>
                         </div>
                     {% else %}
                         <div class="bet-section">
@@ -145,6 +162,48 @@
         <div class="history-sidebar-content">
             <h2 class="sidebar-title-outside">📋 Apostas dos Usuários</h2>
             <div class="sidebar-card">
+            <section class="my-bets-section">
+                <h3 class="history-subtitle">Meus Palpites</h3>
+                {% if user_bet_history %}
+                    <ul class="my-bets-list">
+                        {% for b in user_bet_history %}
+                        <li class="my-bet-item">
+                            <div class="my-bet-match">
+                                <strong>{{ b.team_a }} x {{ b.team_b }}</strong>
+                                <small>{{ b.date }}</small>
+                            </div>
+                            <div class="history-bet-line">
+                                <span class="history-prediction">Placar: {{ b.prediction.replace('-', ' x ') }}</span>
+                                <span class="history-status
+                                    {% if b.status == 'won' %} status-won
+                                    {% elif b.status == 'lost' %} status-lost
+                                    {% else %} status-pending{% endif %}">
+                                    {% if b.status == 'won' %}Acertou
+                                    {% elif b.status == 'lost' %}Errou
+                                    {% else %}Pendente{% endif %}
+                                </span>
+                            </div>
+                            {% if b.game_status == 'finished' %}
+                            <div class="history-result">
+                                Real:
+                                {% if b.team_a_goals is not none and b.team_b_goals is not none %}
+                                    {{ b.team_a_goals }} x {{ b.team_b_goals }}
+                                {% else %}
+                                    {{ b.goals_total or 0 }} gols no total
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="history-empty compact">
+                        <p>Voce ainda nao fez palpites.</p>
+                    </div>
+                {% endif %}
+            </section>
+
+            <h3 class="history-subtitle all-bets-title">Apostas dos Usuarios</h3>
             {% if bet_games %}
                 <div class="history-game-list">
                     {% for game_group in bet_games %}
@@ -195,9 +254,11 @@
                         {% if game_group.game_status == 'finished' %}
                         <div class="history-result">
                             Resultado real:
-                            {% if game_group.winner == 'team_a' %}{{ game_group.team_a }} venceu
-                            {% elif game_group.winner == 'team_b' %}{{ game_group.team_b }} venceu
-                            {% else %}Empate ({{ game_group.goals_total }} gols){% endif %}
+                            {% if game_group.team_a_goals is not none and game_group.team_b_goals is not none %}
+                                {{ game_group.team_a_goals }} x {{ game_group.team_b_goals }}
+                            {% else %}
+                                {{ game_group.goals_total or 0 }} gols no total
+                            {% endif %}
                         </div>
                         {% endif %}
                     </details>
@@ -379,9 +440,19 @@
 .team-name { font-size: 1rem; font-weight: 600; color: #fff; }
 
 /* Resultado finalizado */
-.result-box { text-align: center; min-width: 120px; }
+.result-box { text-align: center; min-width: 190px; }
 .result-label { font-size: 0.68rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
 .result-score { font-size: 0.88rem; font-weight: 700; color: #ef5350; margin: 0.25rem 0; }
+.finished-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; align-items: start; }
+.finished-score-block {
+    min-width: 0;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.45rem 0.55rem;
+}
+.real-score { color: #fff; font-size: 1.05rem; }
+.prediction-score { color: #ef9a9a; font-size: 1.05rem; }
 .result-goals { font-size: 0.72rem; color: #555; }
 
 /* ====== Palpite de placar ====== */
@@ -439,6 +510,53 @@
 .history-sidebar-content .sidebar-card::-webkit-scrollbar-thumb:hover { background: #ef5350; }
 
 .history-game-list { display: flex; flex-direction: column; gap: 0.65rem; }
+.my-bets-section {
+    border-bottom: 1px solid #292929;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+}
+.history-subtitle {
+    color: #f4f4f4;
+    font-size: 0.86rem;
+    margin: 0 0 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.all-bets-title { color: #ef5350; }
+.my-bets-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+.my-bet-item {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+.my-bet-match {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin-bottom: 0.45rem;
+}
+.my-bet-match strong {
+    color: #f4f4f4;
+    font-size: 0.86rem;
+    line-height: 1.25;
+}
+.my-bet-match small {
+    color: #777;
+    font-size: 0.72rem;
+}
+.history-empty.compact {
+    padding: 0.4rem 0;
+    align-items: flex-start;
+    text-align: left;
+}
 .history-game {
     border: 1px solid #2a2a2a;
     border-radius: 10px;
