@@ -8,49 +8,138 @@ import database
 API_KEY = '5659792488e64b63abedb36f34674961'
 API_HOST = 'api.football-data.org'
 
-# Dicionário de tradução de países para o Português
+# Dicionário de tradução de seleções para Português Brasileiro
 TRANSLATIONS = {
-    'Brazil': 'Brasil',
+    'Albania': 'Albânia',
+    'Algeria': 'Argélia',
+    'Angola': 'Angola',
     'Argentina': 'Argentina',
-    'Germany': 'Alemanha',
-    'Spain': 'Espanha',
-    'France': 'França',
-    'England': 'Inglaterra',
-    'Switzerland': 'Suíça',
-    'Canada': 'Canadá',
-    'Bosnia-Herzegovina': 'Bósnia e Herzegovina',
+    'Australia': 'Austrália',
+    'Austria': 'Áustria',
+    'Bahrain': 'Bahrein',
+    'Belgium': 'Bélgica',
+    'Bolivia': 'Bolívia',
     'Bosnia and Herzegovina': 'Bósnia e Herzegovina',
-    'Qatar': 'Catar',
-    'Morocco': 'Marrocos',
-    'Haiti': 'Haiti',
-    'Scotland': 'Escócia',
+    'Bosnia-Herzegovina': 'Bósnia e Herzegovina',
+    'Brazil': 'Brasil',
+    'Burkina Faso': 'Burkina Faso',
+    'Cameroon': 'Camarões',
+    'Canada': 'Canadá',
+    'Cape Verde': 'Cabo Verde',
+    'Cape Verde Islands': 'Cabo Verde',
+    'Chile': 'Chile',
+    'China': 'China',
+    'China PR': 'China',
     'Colombia': 'Colômbia',
     'Congo DR': 'RD Congo',
-    'Italy': 'Itália',
-    'Netherlands': 'Holanda',
-    'Portugal': 'Portugal',
-    'Belgium': 'Bélgica',
+    'Costa Rica': 'Costa Rica',
     'Croatia': 'Croácia',
-    'Uruguay': 'Uruguai',
-    'USA': 'EUA',
-    'United States': 'EUA',
-    'Mexico': 'México',
-    'Japan': 'Japão',
-    'Senegal': 'Senegal',
-    'South Korea': 'Coreia do Sul',
-    'Saudi Arabia': 'Arábia Saudita',
-    'Poland': 'Polônia',
+    'Curacao': 'Curaçao',
+    'Curaçao': 'Curaçao',
+    'Côte d\'Ivoire': 'Costa do Marfim',
+    'Czech Republic': 'República Tcheca',
+    'Czechia': 'República Tcheca',
+    'DR Congo': 'RD Congo',
+    'Denmark': 'Dinamarca',
     'Ecuador': 'Equador',
-    'Cameroon': 'Camarões',
-    'Serbia': 'Sérvia',
+    'Egypt': 'Egito',
+    'El Salvador': 'El Salvador',
+    'England': 'Inglaterra',
+    'Ethiopia': 'Etiópia',
+    'Finland': 'Finlândia',
+    'France': 'França',
+    'Germany': 'Alemanha',
     'Ghana': 'Gana',
-    'Wales': 'País de Gales',
+    'Greece': 'Grécia',
+    'Guinea': 'Guiné',
+    'Guinea-Bissau': 'Guiné-Bissau',
+    'Haiti': 'Haiti',
+    'Honduras': 'Honduras',
+    'Hungary': 'Hungria',
+    'Iceland': 'Islândia',
+    'India': 'Índia',
+    'Indonesia': 'Indonésia',
     'Iran': 'Irã',
-    'Denmark': 'Dinamarca'
+    'Iraq': 'Iraque',
+    'Ireland': 'Irlanda',
+    'Italy': 'Itália',
+    'Republic of Ireland': 'Irlanda',
+    'Ivory Coast': 'Costa do Marfim',
+    'Jamaica': 'Jamaica',
+    'Japan': 'Japão',
+    'Jordan': 'Jordânia',
+    'Kenya': 'Quênia',
+    'Kuwait': 'Kuwait',
+    'Libya': 'Líbia',
+    'Mali': 'Mali',
+    'Mexico': 'México',
+    'Morocco': 'Marrocos',
+    'Mozambique': 'Moçambique',
+    'Netherlands': 'Holanda',
+    'New Zealand': 'Nova Zelândia',
+    'Nigeria': 'Nigéria',
+    'Northern Ireland': 'Irlanda do Norte',
+    'Norway': 'Noruega',
+    'Oman': 'Omã',
+    'Panama': 'Panamá',
+    'Paraguay': 'Paraguai',
+    'Peru': 'Peru',
+    'Poland': 'Polônia',
+    'Portugal': 'Portugal',
+    'Qatar': 'Catar',
+    'Romania': 'Romênia',
+    'Saudi Arabia': 'Arábia Saudita',
+    'Scotland': 'Escócia',
+    'Senegal': 'Senegal',
+    'Serbia': 'Sérvia',
+    'Slovakia': 'Eslováquia',
+    'Slovenia': 'Eslovênia',
+    'South Africa': 'África do Sul',
+    'South Korea': 'Coreia do Sul',
+    'Korea Republic': 'Coreia do Sul',
+    'Spain': 'Espanha',
+    'Sweden': 'Suécia',
+    'Switzerland': 'Suíça',
+    'Thailand': 'Tailândia',
+    'Trinidad and Tobago': 'Trinidad e Tobago',
+    'Tunisia': 'Tunísia',
+    'Turkey': 'Turquia',
+    'Türkiye': 'Turquia',
+    'UAE': 'Emirados Árabes Unidos',
+    'USA': 'EUA',
+    'Uganda': 'Uganda',
+    'Ukraine': 'Ucrânia',
+    'United Arab Emirates': 'Emirados Árabes Unidos',
+    'United States': 'EUA',
+    'Uruguay': 'Uruguai',
+    'Uzbekistan': 'Uzbequistão',
+    'Venezuela': 'Venezuela',
+    'Vietnam': 'Vietnã',
+    'Wales': 'País de Gales',
+    'Zambia': 'Zâmbia',
 }
 
 def translate_name(name):
     return TRANSLATIONS.get(name, name)
+
+def sync_team_names_in_db():
+    """Atualiza nomes em inglês já salvos no banco para português."""
+    conn = database.get_db()
+    games = conn.execute('SELECT id, team_a, team_b FROM games').fetchall()
+    updated = 0
+    for game in games:
+        team_a = translate_name(game['team_a'])
+        team_b = translate_name(game['team_b'])
+        if team_a != game['team_a'] or team_b != game['team_b']:
+            conn.execute(
+                'UPDATE games SET team_a = ?, team_b = ? WHERE id = ?',
+                (team_a, team_b, game['id'])
+            )
+            updated += 1
+    if updated:
+        conn.commit()
+    conn.close()
+    return updated
 
 def fetch_from_api(endpoint):
     url = f"https://{API_HOST}/v4/{endpoint}"
@@ -70,6 +159,7 @@ def fetch_from_api(endpoint):
 
 def pull_new_games():
     """Busca jogos de hoje da Copa do Mundo e insere como pendentes para apostas."""
+    sync_team_names_in_db()
     
     # Pegar o dia atual considerando o fuso horário local (UTC-3 do Brasil)
     now_utc = datetime.utcnow()

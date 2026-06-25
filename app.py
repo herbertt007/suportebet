@@ -16,6 +16,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 # In-memory cache for profile images
 profile_image_cache = {}
+_team_names_synced = False
 
 def get_profile_photo(user_id, profile_photo):
     """Get profile photo from cache first, then from database"""
@@ -56,6 +57,13 @@ def request_entity_too_large(error):
 @app.before_request
 def setup():
     database.init_db()
+    global _team_names_synced
+    if not _team_names_synced:
+        try:
+            sync_api.sync_team_names_in_db()
+            _team_names_synced = True
+        except Exception:
+            pass
 
 @app.route('/')
 def index():
