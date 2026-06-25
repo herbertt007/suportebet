@@ -133,7 +133,7 @@ def pull_new_games():
     return added > 0
 
 def resolve_pending_games():
-    """Busca o resultado real na API para jogos pendentes e corrige placares faltantes."""
+    """Busca resultado real na API e revalida todos os palpites por placar exato."""
     conn = database.get_db()
     # Incluir jogos finalizados sem placar para corrigir dados antigos
     games_to_resolve = conn.execute("""
@@ -142,75 +142,67 @@ def resolve_pending_games():
         AND (status = 'pending' OR (status = 'finished' AND (team_a_goals IS NULL OR team_b_goals IS NULL)))
     """).fetchall()
 
-    if not games_to_resolve:
-        conn.close()
-        return False
-
     for game in games_to_resolve:
         api_id = game['api_id']
         game_id = game['id']
-        
+
         match_data = fetch_from_api(f"matches/{api_id}")
         if not match_data:
             continue
-            
+
         status = match_data['status']
         if status not in ['FINISHED', 'AWARDED']:
             continue
-            
+
         score = match_data['score']['fullTime']
         home_goals = score.get('home') or 0
         away_goals = score.get('away') or 0
-        
+
         goals_total = home_goals + away_goals
         winner = 'draw'
         if home_goals > away_goals:
             winner = 'team_a'
         elif away_goals > home_goals:
             winner = 'team_b'
-        
+
         conn.execute('''
-            UPDATE games 
+            UPDATE games
             SET status = 'finished', winner = ?, goals_total = ?, team_a_goals = ?, team_b_goals = ?,
                 shots_total = 0, cards_total = 0, finishes_total = 0
             WHERE id = ?
         ''', (winner, goals_total, home_goals, away_goals, game_id))
-        
-        resolve_bets(conn, game_id, winner, goals_total, home_goals, away_goals)
-        
+
+    # Revalidar TODOS os palpites de jogos finalizados com placar exato
+    revalidate_all_bets(conn)
+
     conn.commit()
     conn.close()
     return True
 
-def resolve_bets(conn, game_id, winner, goals_total, home_goals, away_goals):
-    bets = conn.execute("SELECT * FROM bets WHERE game_id = ? AND status = 'pending'", (game_id,)).fetchall()
-    for bet in bets:
-        won = False
-        points_awarded = 0
-        
-        if bet['bet_type'] == 'score':
-            # Palpite de placar exato ex: '2-1'
-            predicted = bet['prediction']  # ex: '2-1'
-            actual = f"{home_goals}-{away_goals}"
-            if predicted == actual:
-                won = True
-                points_awarded = 20  # Placar exato vale mais pontos!
-        elif bet['bet_type'] == 'winner' and bet['prediction'] == winner:
-            won = True
-            points_awarded = 10
-        elif bet['bet_type'] == 'goals' and bet['prediction'] == str(goals_total):
-            won = True
-            points_awarded = 15
-            
-        status = 'won' if won else 'lost'
-        conn.execute('UPDATE bets SET status = ? WHERE id = ?', (status, bet['id']))
-        
-        if won:
-            conn.execute('''
-                UPDATE users 
-                SET points = points + ?, correct_bets = correct_bets + 1 
-                WHERE id = ?
-            ''', (points_awarded, bet['user_id']))
+
+def revalidate_all_bets(conn):
+    """Revalida todas as apostas por placar exato e recalcula acertos de cada usuario."""
+    finished_games = conn.execute("""
+        SELECT id, team_a_goals, team_b_goals FROM games
+        WHERE status = 'finished' AND team_a_goals IS NOT NULL AND team_b_goals IS NOT NULL
+    """).fetchall()
+
+    for game in finished_games:
+        actual = f"{game['team_a_goals']}-{game['team_b_goals']}"
+        bets = conn.execute("SELECT * FROM bets WHERE game_id = ?", (game['id'],)).fetchall()
+        for bet in bets:
+            won = (bet['bet_type'] == 'score' and bet['prediction'] == actual)
+            conn.execute('UPDATE bets SET status = ? WHERE id = ?',
+                         ('won' if won else 'lost', bet['id']))
+
+    # Recalcular correct_bets e points do zero para todos os usuarios
+    conn.execute('UPDATE users SET correct_bets = 0, points = 0')
+    user_wins = conn.execute("""
+        SELECT user_id, COUNT(*) as wins FROM bets WHERE status = 'won' GROUP BY user_id
+    """).fetchall()
+    for uw in user_wins:
+        conn.execute('UPDATE users SET correct_bets = ?, points = ? WHERE id = ?',
+                     (uw['wins'], uw['wins'] * 20, uw['user_id']))
 
 if __name__ == "__main__":
     print("Sincronizando com a API...")
