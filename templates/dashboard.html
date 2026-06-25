@@ -148,16 +148,20 @@
                             <div class="score-input-row">
                                 <div class="score-team-block">
                                     <span class="score-team-name">{{ game.team_a[:3].upper() }}</span>
-                                    <input type="number" min="0" max="20" class="score-input"
+                                    <input type="number" min="0" max="999" class="score-input"
                                         id="score-a-{{ game.id }}" value="{{ score_a }}"
-                                        onchange="onScoreChange({{ game.id }})">
+                                        onchange="onScoreChange({{ game.id }})"
+                                        oninput="validateScoreInput(this)"
+                                        maxlength="3">
                                 </div>
                                 <span class="score-vs">X</span>
                                 <div class="score-team-block">
                                     <span class="score-team-name">{{ game.team_b[:3].upper() }}</span>
-                                    <input type="number" min="0" max="20" class="score-input"
+                                    <input type="number" min="0" max="999" class="score-input"
                                         id="score-b-{{ game.id }}" value="{{ score_b }}"
-                                        onchange="onScoreChange({{ game.id }})">
+                                        onchange="onScoreChange({{ game.id }})"
+                                        oninput="validateScoreInput(this)"
+                                        maxlength="3">
                                 </div>
                             </div>
                             <div class="confirm-row visible">
@@ -759,6 +763,21 @@ function onScoreChange(gameId) {
     const btn = document.getElementById('confirm-btn-' + gameId);
     btn.textContent = 'Apostar';
     btn.classList.remove('confirmed');
+}
+
+function validateScoreInput(input) {
+    // Remove non-numeric characters
+    let value = input.value.replace(/[^0-9]/g, '');
+    
+    // Limit to 3 digits
+    if (value.length > 3) {
+        value = value.slice(0, 3);
+    }
+    
+    // Update input value if changed
+    if (input.value !== value) {
+        input.value = value;
+    }
 }
 
 function confirmScoreBet(gameId) {
