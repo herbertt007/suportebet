@@ -96,6 +96,9 @@ def init_db():
     if 'profile_photo' not in column_names:
         conn.execute('ALTER TABLE users ADD COLUMN profile_photo TEXT')
     
+    if 'is_admin' not in column_names:
+        conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
+    
     conn.execute('''
         CREATE TABLE IF NOT EXISTS games (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

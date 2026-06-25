@@ -63,9 +63,10 @@ def index():
     conn = database.get_db()
     user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
     
-    # Process current user's profile photo
+    # Process current user's profile photo and admin status
     user_dict = dict(user)
     user_dict['profile_photo'] = get_profile_photo(user['id'], user['profile_photo'])
+    user_dict['is_admin'] = user.get('is_admin', 0) == 1
     
     today_local = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
     games = conn.execute(

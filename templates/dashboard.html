@@ -19,10 +19,12 @@
         COPA DO MUNDO
     </h2>
 
+    {% if user.is_admin %}
     <div class="admin-actions">
         <a href="{{ url_for('pull_games') }}" class="admin-btn" title="Puxar Jogos">Puxar Jogos</a>
         <a href="{{ url_for('resolve_games') }}" class="admin-btn secondary" title="Atualizar Placares">Atualizar Placares</a>
     </div>
+    {% endif %}
 </div>
 
 <!-- Grid principal: 22% Ranking | 50% Jogos | 28% Histórico -->
