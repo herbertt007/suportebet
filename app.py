@@ -78,28 +78,28 @@ def index():
     # Process users to use cached profile photos
     users_with_photos = []
     for u in users:
-        user_dict = dict(u)
-        user_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
-        users_with_photos.append(user_dict)
+        u_dict = dict(u)
+        u_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
+        users_with_photos.append(u_dict)
 
-    # Determinar quais jogos já começaram (bloquear palpites)
+    # Determinar quais jogos j? come?aram (bloquear palpites)
     now_local = datetime.utcnow() - timedelta(hours=3)
     locked_games = set()
     for game in games:
         try:
-            game_dt = datetime.strptime(game['date'], '%Y-%m-%d às %H:%M')
+            game_dt = datetime.strptime(game['date'], '%Y-%m-%d ��s %H:%M')
             if now_local >= game_dt:
                 locked_games.add(game['id'])
         except (ValueError, TypeError):
             pass
 
-    # Buscar apostas do usuário atual para marcar quais já foram feitas
+    # Buscar apostas do usu?rio atual para marcar quais j? foram feitas
     user_bets = conn.execute(
         "SELECT game_id, bet_type, prediction, status FROM bets WHERE user_id = ?",
         (session['user_id'],)
     ).fetchall()
     
-    # Criar dicionário: {game_id: {bet_type: prediction}} e status
+    # Criar dicion?rio: {game_id: {bet_type: prediction}} e status
     bets_dict = {}
     bets_status = {}
     for b in user_bets:
@@ -109,7 +109,7 @@ def index():
         bets_dict[b['game_id']][b['bet_type']] = b['prediction']
         bets_status[b['game_id']][b['bet_type']] = b['status']
     
-    # Apostas de todos os usuários agrupadas por jogo (somente hoje)
+    # Apostas de todos os usu?rios agrupadas por jogo (somente hoje)
     bet_history = conn.execute('''
         SELECT g.id as game_id, u.id as user_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
@@ -176,7 +176,7 @@ def login():
             conn = database.get_db()
             user = conn.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
             if not user:
-                flash('Usuário ou senha incorretos, ou usuário não cadastrado.', 'error')
+                flash('Usu?rio ou senha incorretos, ou usu?rio n?o cadastrado.', 'error')
             else:
                 session['user_id'] = user['id']
                 conn.close()
@@ -193,11 +193,11 @@ def register():
             conn = database.get_db()
             user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
             if user:
-                flash('Usuário já existe. Faça o login.', 'error')
+                flash('Usu?rio j? existe. Fa?a o login.', 'error')
             else:
                 conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
                 conn.commit()
-                flash('Cadastro realizado com sucesso! Faça login.', 'success')
+                flash('Cadastro realizado com sucesso! Fa?a login.', 'success')
                 conn.close()
                 return redirect(url_for('login'))
             conn.close()
@@ -286,14 +286,14 @@ def resolve_games():
     if success:
         flash('Placares atualizados e acertos contabilizados!', 'success')
     else:
-        flash('Não há jogos pendentes para atualizar ou erro na API.', 'error')
+        flash('N?o h? jogos pendentes para atualizar ou erro na API.', 'error')
     return redirect(url_for('index'))
 
 @app.route('/bet', methods=['POST'])
 def bet():
     """Rota AJAX para registrar apostas diretamente do dashboard."""
     if 'user_id' not in session:
-        return jsonify({'success': False, 'message': 'Não autorizado'}), 401
+        return jsonify({'success': False, 'message': 'N?o autorizado'}), 401
 
     data = request.get_json()
     game_id = data.get('game_id')
@@ -301,27 +301,35 @@ def bet():
     prediction = data.get('prediction')
 
     if not game_id or not bet_type or not prediction:
-        return jsonify({'success': False, 'message': 'Dados inválidos'}), 400
+        return jsonify({'success': False, 'message': 'Dados inv?lidos'}), 400
+
+    if bet_type == 'score':
+        parts = str(prediction).split('-')
+        if len(parts) != 2:
+            return jsonify({'success': False, 'message': 'Placar inv?lido'}), 400
+        for part in parts:
+            if not part.isdigit() or len(part) > 3 or int(part) > 999:
+                return jsonify({'success': False, 'message': 'Placar inv?lido. Use at? 3 n?meros por time (ex: 100 x 100).'}), 400
 
     conn = database.get_db()
     
-    # Verificar se o jogo ainda está pendente
+    # Verificar se o jogo ainda est? pendente
     game = conn.execute('SELECT status, date FROM games WHERE id = ?', (game_id,)).fetchone()
     if not game or game['status'] != 'pending':
         conn.close()
-        return jsonify({'success': False, 'message': 'Jogo não disponível para apostas'})
+        return jsonify({'success': False, 'message': 'Jogo n?o dispon?vel para apostas'})
 
-    # Verificar se o jogo já começou pelo horário
+    # Verificar se o jogo j? come?ou pelo hor?rio
     try:
-        game_datetime = datetime.strptime(game['date'], '%Y-%m-%d às %H:%M')
+        game_datetime = datetime.strptime(game['date'], '%Y-%m-%d ��s %H:%M')
         now_local = datetime.utcnow() - timedelta(hours=3)
         if now_local >= game_datetime:
             conn.close()
-            return jsonify({'success': False, 'message': 'Jogo já iniciou! Não é possível registrar palpites.'})
+            return jsonify({'success': False, 'message': 'Jogo j? iniciou! N?o ? poss?vel registrar palpites.'})
     except (ValueError, TypeError):
         pass
 
-    # Verificar se já apostou nesse tipo para esse jogo
+    # Verificar se j? apostou nesse tipo para esse jogo
     existing = conn.execute(
         'SELECT id FROM bets WHERE user_id = ? AND game_id = ? AND bet_type = ?',
         (session['user_id'], game_id, bet_type)
@@ -353,9 +361,9 @@ def leaderboard():
     # Process users to use cached profile photos
     users_with_photos = []
     for u in users:
-        user_dict = dict(u)
-        user_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
-        users_with_photos.append(user_dict)
+        u_dict = dict(u)
+        u_dict['profile_photo'] = get_profile_photo(u['id'], u['profile_photo'])
+        users_with_photos.append(u_dict)
     
     conn.close()
     return render_template('leaderboard.html', users=users_with_photos)

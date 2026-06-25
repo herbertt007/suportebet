@@ -150,19 +150,21 @@
                             <div class="score-input-row">
                                 <div class="score-team-block">
                                     <span class="score-team-name">{{ game.team_a[:3].upper() }}</span>
-                                    <input type="number" min="0" max="999" class="score-input"
+                                    <input type="text" inputmode="numeric" pattern="[0-9]*" class="score-input"
                                         id="score-a-{{ game.id }}" value="{{ score_a }}"
                                         onchange="onScoreChange({{ game.id }})"
                                         oninput="validateScoreInput(this)"
+                                        onkeydown="blockNonNumericKey(event)"
                                         maxlength="3">
                                 </div>
                                 <span class="score-vs">X</span>
                                 <div class="score-team-block">
                                     <span class="score-team-name">{{ game.team_b[:3].upper() }}</span>
-                                    <input type="number" min="0" max="999" class="score-input"
+                                    <input type="text" inputmode="numeric" pattern="[0-9]*" class="score-input"
                                         id="score-b-{{ game.id }}" value="{{ score_b }}"
                                         onchange="onScoreChange({{ game.id }})"
                                         oninput="validateScoreInput(this)"
+                                        onkeydown="blockNonNumericKey(event)"
                                         maxlength="3">
                                 </div>
                             </div>
@@ -767,16 +769,16 @@ function onScoreChange(gameId) {
     btn.classList.remove('confirmed');
 }
 
-function validateScoreInput(input) {
-    // Remove non-numeric characters
-    let value = input.value.replace(/[^0-9]/g, '');
-    
-    // Limit to 3 digits
-    if (value.length > 3) {
-        value = value.slice(0, 3);
+function blockNonNumericKey(event) {
+    const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+    if (allowed.includes(event.key) || event.ctrlKey || event.metaKey) return;
+    if (!/^[0-9]$/.test(event.key)) {
+        event.preventDefault();
     }
-    
-    // Update input value if changed
+}
+
+function validateScoreInput(input) {
+    let value = input.value.replace(/[^0-9]/g, '').slice(0, 3);
     if (input.value !== value) {
         input.value = value;
     }
@@ -787,11 +789,11 @@ function confirmScoreBet(gameId) {
     const inputB = document.getElementById('score-b-' + gameId);
     const btn = document.getElementById('confirm-btn-' + gameId);
 
-    const scoreA = parseInt(inputA.value);
-    const scoreB = parseInt(inputB.value);
+    const scoreA = inputA.value.trim();
+    const scoreB = inputB.value.trim();
 
-    if (isNaN(scoreA) || isNaN(scoreB) || scoreA < 0 || scoreB < 0) {
-        showToast('⚠️ Placar inválido!', 'info');
+    if (!/^\d{1,3}$/.test(scoreA) || !/^\d{1,3}$/.test(scoreB)) {
+        showToast('⚠️ Placar inválido! Use até 3 números por time (ex: 100 x 100).', 'info');
         return;
     }
 
