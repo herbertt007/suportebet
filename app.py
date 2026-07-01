@@ -254,10 +254,10 @@ def login():
             conn = database.get_db()
             user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
             if not user:
-                cursor = conn.execute('INSERT INTO users (username, password, is_active) VALUES (?, ?, 1)', (username, password))
-                user_id = cursor.lastrowid
+                conn.execute('INSERT INTO users (username, password, is_active) VALUES (?, ?, 1)', (username, password))
+                new_user = conn.execute('SELECT id FROM users WHERE username = ?', (username,)).fetchone()
                 conn.commit()
-                session['user_id'] = user_id
+                session['user_id'] = new_user['id']
                 conn.close()
                 return redirect(url_for('index'))
             else:
