@@ -117,7 +117,7 @@ def index():
     
     today_local = (datetime.utcnow() - timedelta(hours=3)).strftime('%Y-%m-%d')
     games = conn.execute(
-        "SELECT * FROM games WHERE date LIKE ? ORDER BY date ASC",
+        "SELECT * FROM games WHERE status = 'pending' OR date LIKE ? ORDER BY date ASC",
         (f"{today_local}%",)
     ).fetchall()
     users = conn.execute('SELECT id, username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
@@ -156,7 +156,7 @@ def index():
         bets_dict[b['game_id']][b['bet_type']] = b['prediction']
         bets_status[b['game_id']][b['bet_type']] = b['status']
     
-    # Apostas de todos os usu?rios agrupadas por jogo (somente hoje)
+    # Apostas de todos os usu?rios agrupadas por jogo
     bet_history = conn.execute('''
         SELECT g.id as game_id, u.id as user_id, u.username, u.profile_photo, b.bet_type, b.prediction, b.status,
                g.team_a, g.team_b, g.date, g.status as game_status,
@@ -164,7 +164,7 @@ def index():
         FROM bets b
         JOIN games g ON b.game_id = g.id
         JOIN users u ON b.user_id = u.id
-        WHERE g.date LIKE ?
+        WHERE g.status = 'pending' OR g.date LIKE ?
         ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC, u.username ASC
     ''', (f"{today_local}%",)).fetchall()
 
@@ -174,7 +174,7 @@ def index():
                g.winner, g.goals_total, g.team_a_goals, g.team_b_goals
         FROM bets b
         JOIN games g ON b.game_id = g.id
-        WHERE b.user_id = ? AND g.date LIKE ?
+        WHERE b.user_id = ? AND (g.status = 'pending' OR g.date LIKE ?)
         ORDER BY g.date DESC, g.team_a ASC, g.team_b ASC
     ''', (session['user_id'], f"{today_local}%")).fetchall()
 
@@ -596,6 +596,26 @@ def historico():
     conn.close()
     return render_template('historico.html', user=user_dict, bets=bets,
                            total=total, won=won, lost=lost, pending=pending)
+
+@app.route('/admin/hard_reset')
+def admin_hard_reset():
+    denied = require_admin()
+    if denied:
+        return denied
+    conn = database.get_db()
+    conn.execute('DELETE FROM bets')
+    conn.execute('DELETE FROM games')
+    conn.execute('DELETE FROM users WHERE username != ?', ('herbert',))
+    conn.execute('UPDATE users SET correct_bets = 0, points = 0 WHERE username = ?', ('herbert',))
+    h = conn.execute('SELECT id FROM users WHERE username = ?', ('herbert',)).fetchone()
+    if not h:
+        conn.execute("INSERT INTO users (username, password, is_admin) VALUES ('herbert', '123', 1)")
+    else:
+        conn.execute("UPDATE users SET password = '123', is_admin = 1 WHERE username = 'herbert'")
+    conn.commit()
+    conn.close()
+    flash('Banco de dados de produção limpo. Apenas herbert foi mantido.', 'success')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     app.run(debug=True)
