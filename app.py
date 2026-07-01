@@ -250,34 +250,23 @@ def login():
         password = request.form.get('password', '').strip()
         if username and password:
             conn = database.get_db()
-            user = conn.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, password)).fetchone()
+            user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
             if not user:
-                flash('Usu?rio ou senha incorretos, ou usu?rio n?o cadastrado.', 'error')
-            else:
-                session['user_id'] = user['id']
+                cursor = conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+                user_id = cursor.lastrowid
+                conn.commit()
+                session['user_id'] = user_id
                 conn.close()
                 return redirect(url_for('index'))
+            else:
+                if user['password'] == password:
+                    session['user_id'] = user['id']
+                    conn.close()
+                    return redirect(url_for('index'))
+                else:
+                    flash('Senha incorreta.', 'error')
             conn.close()
     return render_template('login.html')
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username'].strip()
-        password = request.form.get('password', '').strip()
-        if username and password:
-            conn = database.get_db()
-            user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-            if user:
-                flash('Usu?rio j? existe. Fa?a o login.', 'error')
-            else:
-                conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
-                conn.commit()
-                flash('Cadastro realizado com sucesso! Fa?a login.', 'success')
-                conn.close()
-                return redirect(url_for('login'))
-            conn.close()
-    return render_template('register.html')
 
 @app.route('/logout')
 def logout():

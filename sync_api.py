@@ -158,7 +158,7 @@ def fetch_from_api(endpoint):
         return None
 
 def pull_new_games():
-    """Busca jogos de hoje da Copa do Mundo e insere como pendentes para apostas."""
+    """Busca jogo do Brasil (de hoje ou o próximo) e insere como pendente para apostas."""
     sync_team_names_in_db()
     
     # Pegar o dia atual considerando o fuso horário local (UTC-3 do Brasil)
@@ -166,9 +166,9 @@ def pull_new_games():
     now_local = now_utc - timedelta(hours=3)
     today_local_str = now_local.strftime('%Y-%m-%d')
     
-    # Buscar numa janela maior na API (ontem, hoje e amanhã no UTC) para não perder nenhum jogo por causa do fuso horário
-    date_from = (now_local - timedelta(days=1)).strftime('%Y-%m-%d')
-    date_to = (now_local + timedelta(days=1)).strftime('%Y-%m-%d')
+    # Buscar numa janela maior na API (até 60 dias) para encontrar o próximo jogo do Brasil
+    date_from = now_local.strftime('%Y-%m-%d')
+    date_to = (now_local + timedelta(days=60)).strftime('%Y-%m-%d')
     
     data = fetch_from_api(f"competitions/WC/matches?dateFrom={date_from}&dateTo={date_to}")
     
@@ -179,44 +179,66 @@ def pull_new_games():
         return False
         
     matches = data['matches']
-    added = 0
     
+    # Filtrar apenas jogos do Brasil
+    brazil_matches = []
     for match in matches:
-        # Converter o horário do jogo (que vem em UTC) para o horário local do Brasil (UTC-3)
+        team_a_en = match['homeTeam']['name'] if match['homeTeam'].get('name') else 'TBD'
+        team_b_en = match['awayTeam']['name'] if match['awayTeam'].get('name') else 'TBD'
+        if 'Brazil' in [team_a_en, team_b_en]:
+            brazil_matches.append(match)
+
+    if not brazil_matches:
+        conn.close()
+        return False
+        
+    # Ordenar por data
+    brazil_matches.sort(key=lambda x: x['utcDate'])
+    
+    # Encontrar o jogo de hoje; se não houver, pegar o próximo (o primeiro da lista)
+    target_match = None
+    for match in brazil_matches:
         match_time_utc = datetime.strptime(match['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
         match_time_local = match_time_utc - timedelta(hours=3)
         match_date_local = match_time_local.strftime('%Y-%m-%d')
         
-        # Filtra rigorosamente: SÓ JOGOS DO DIA DE HOJE (no fuso do Brasil)
-        if match_date_local != today_local_str:
-            continue
+        if match_date_local == today_local_str:
+            target_match = match
+            break
             
-        api_id = match['id']
-        team_a_en = match['homeTeam']['name'] if match['homeTeam'].get('name') else 'TBD'
-        team_b_en = match['awayTeam']['name'] if match['awayTeam'].get('name') else 'TBD'
-        
-        # Obter URLs das bandeiras (crests)
-        team_a_crest = match['homeTeam'].get('crest', '')
-        team_b_crest = match['awayTeam'].get('crest', '')
-        
-        if team_a_en == 'TBD' or team_b_en == 'TBD':
-            continue
-            
-        # Traduzir os nomes
-        team_a = translate_name(team_a_en)
-        team_b = translate_name(team_b_en)
-        
-        # Formatando o horário de exibição HH:MM
-        display_time = match_time_local.strftime('%H:%M')
-        
-        existing_game = conn.execute('SELECT * FROM games WHERE api_id = ?', (api_id,)).fetchone()
-        
-        if not existing_game:
-            conn.execute('''
-                INSERT INTO games (team_a, team_b, date, status, api_id, team_a_crest, team_b_crest) 
-                VALUES (?, ?, ?, 'pending', ?, ?, ?)
-            ''', (team_a, team_b, f"{today_local_str} às {display_time}", api_id, team_a_crest, team_b_crest))
-            added += 1
+    if not target_match:
+        target_match = brazil_matches[0]
+
+    added = 0
+    match = target_match
+    
+    match_time_utc = datetime.strptime(match['utcDate'], '%Y-%m-%dT%H:%M:%SZ')
+    match_time_local = match_time_utc - timedelta(hours=3)
+    match_date_local = match_time_local.strftime('%Y-%m-%d')
+    
+    api_id = match['id']
+    team_a_en = match['homeTeam']['name'] if match['homeTeam'].get('name') else 'TBD'
+    team_b_en = match['awayTeam']['name'] if match['awayTeam'].get('name') else 'TBD'
+    
+    # Obter URLs das bandeiras (crests)
+    team_a_crest = match['homeTeam'].get('crest', '')
+    team_b_crest = match['awayTeam'].get('crest', '')
+    
+    # Traduzir os nomes
+    team_a = translate_name(team_a_en)
+    team_b = translate_name(team_b_en)
+    
+    # Formatando o horário de exibição HH:MM
+    display_time = match_time_local.strftime('%H:%M')
+    
+    existing_game = conn.execute('SELECT * FROM games WHERE api_id = ?', (api_id,)).fetchone()
+    
+    if not existing_game:
+        conn.execute('''
+            INSERT INTO games (team_a, team_b, date, status, api_id, team_a_crest, team_b_crest) 
+            VALUES (?, ?, ?, 'pending', ?, ?, ?)
+        ''', (team_a, team_b, f"{match_date_local} às {display_time}", api_id, team_a_crest, team_b_crest))
+        added += 1
             
     conn.commit()
     conn.close()
