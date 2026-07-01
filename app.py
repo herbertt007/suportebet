@@ -204,25 +204,26 @@ def index():
     admin_stats = None
     admin_bets = None
     admin_games = None
+    admin_users = None
     if user_dict['is_admin']:
         admin_stats = {
             'total_users': conn.execute('SELECT COUNT(*) as c FROM users').fetchone()['c'],
             'total_bets': conn.execute('SELECT COUNT(*) as c FROM bets').fetchone()['c'],
-            'pending_bets': conn.execute('SELECT COUNT(*) as c FROM bets WHERE status = ?', ('pending',)).fetchone()['c'],
-            'finished_games': conn.execute('SELECT COUNT(*) as c FROM games WHERE status = ?', ('finished',)).fetchone()['c'],
-            'pending_games': conn.execute('SELECT COUNT(*) as c FROM games WHERE status = ?', ('pending',)).fetchone()['c'],
+            'pending_bets': conn.execute("SELECT COUNT(*) as c FROM bets WHERE status='pending'").fetchone()['c'],
+            'pending_games': conn.execute("SELECT COUNT(*) as c FROM games WHERE status='pending'").fetchone()['c'],
+            'finished_games': conn.execute("SELECT COUNT(*) as c FROM games WHERE status='finished'").fetchone()['c']
         }
+        
         admin_bets = conn.execute('''
-            SELECT b.id, b.prediction, b.status, b.bet_type,
-                   u.username, u.id as user_id,
-                   g.id as game_id, g.team_a, g.team_b, g.date,
-                   g.status as game_status, g.team_a_goals, g.team_b_goals
+            SELECT b.id, b.game_id, b.user_id, b.bet_type, b.prediction, b.status,
+                   u.username, g.team_a, g.team_b, g.date, g.status as game_status,
+                   g.team_a_goals, g.team_b_goals
             FROM bets b
-            JOIN games g ON b.game_id = g.id
             JOIN users u ON b.user_id = u.id
-            ORDER BY g.date DESC, u.username ASC
-            LIMIT 300
+            JOIN games g ON b.game_id = g.id
+            ORDER BY g.date DESC, b.id DESC LIMIT 100
         ''').fetchall()
+        
         admin_games = conn.execute(
             'SELECT * FROM games ORDER BY date DESC LIMIT 100'
         ).fetchall()
