@@ -100,6 +100,11 @@ def init_db():
     if 'is_admin' not in column_names:
         conn.execute('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0')
 
+    if 'is_active' not in column_names:
+        conn.execute('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1')
+        # Inativar todos exceto o admin no momento da criação da coluna
+        conn.execute("UPDATE users SET is_active = 0 WHERE LOWER(username) != ?", (ADMIN_USERNAME,))
+
     ensure_admin_user(conn)
     
     conn.execute('''

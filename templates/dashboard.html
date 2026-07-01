@@ -339,6 +339,7 @@
             <div class="admin-tabs">
                 <button type="button" class="admin-tab active" onclick="switchAdminTab('bets')" id="tab-bets">📋 Apostas</button>
                 <button type="button" class="admin-tab" onclick="switchAdminTab('games')" id="tab-games">⚽ Jogos</button>
+                <button type="button" class="admin-tab" onclick="switchAdminTab('users')" id="tab-users">👥 Usuários</button>
             </div>
 
             <div class="admin-tab-content active" id="content-bets">
@@ -466,6 +467,41 @@
                     {% if not admin_games %}
                     <p class="admin-empty">Nenhum jogo cadastrado.</p>
                     {% endif %}
+                </div>
+            </div>
+
+            <div class="admin-tab-content" id="content-users">
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="admin-users-table">
+                        <thead>
+                            <tr>
+                                <th>Usuário</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for u in admin_users %}
+                            <tr>
+                                <td><strong>{{ u.username }}</strong></td>
+                                <td>
+                                    <span class="admin-badge {{ 'active-user' if u.is_active else 'inactive-user' }}" style="background: {{ 'rgba(0, 230, 118, 0.2)' if u.is_active else 'rgba(255, 23, 68, 0.2)' }}; color: {{ 'var(--primary-color)' if u.is_active else 'var(--danger-color)' }};">
+                                        {{ 'Ativo' if u.is_active else 'Inativo' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if user.id != u.id %}
+                                    <button type="button" class="admin-action-btn" onclick="adminToggleUser({{ u.id }}, {{ 0 if u.is_active else 1 }})">
+                                        {{ 'Desativar' if u.is_active else 'Ativar' }}
+                                    </button>
+                                    {% else %}
+                                    <span class="admin-muted" style="color: var(--text-muted); font-size: 0.85rem;">(Você)</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -1414,6 +1450,25 @@ function adminRecalculate() {
         }
     })
     .catch(() => showToast('Erro ao recalcular', 'error'));
+}
+
+function adminToggleUser(userId, isActive) {
+    if (!confirm('Deseja realmente ' + (isActive ? 'ativar' : 'inativar') + ' este usuário?')) return;
+    fetch('/admin/toggle_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, is_active: isActive })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message || 'Erro ao atualizar', 'error');
+        }
+    })
+    .catch(() => showToast('Erro na requisição', 'error'));
 }
 </script>
 {% endblock %}

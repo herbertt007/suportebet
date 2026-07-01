@@ -226,6 +226,7 @@ def index():
         admin_games = conn.execute(
             'SELECT * FROM games ORDER BY date DESC LIMIT 100'
         ).fetchall()
+        admin_users = conn.execute('SELECT id, username, is_active FROM users ORDER BY username ASC').fetchall()
     
     conn.close()
     return render_template(
@@ -241,6 +242,7 @@ def index():
         admin_stats=admin_stats,
         admin_bets=admin_bets,
         admin_games=admin_games,
+        admin_users=admin_users,
     )
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -252,14 +254,16 @@ def login():
             conn = database.get_db()
             user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
             if not user:
-                cursor = conn.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+                cursor = conn.execute('INSERT INTO users (username, password, is_active) VALUES (?, ?, 1)', (username, password))
                 user_id = cursor.lastrowid
                 conn.commit()
                 session['user_id'] = user_id
                 conn.close()
                 return redirect(url_for('index'))
             else:
-                if user['password'] == password:
+                if user.get('is_active') == 0:
+                    flash('Usuário inativo. O acesso foi bloqueado.', 'error')
+                elif user['password'] == password:
                     session['user_id'] = user['id']
                     conn.close()
                     return redirect(url_for('index'))
@@ -486,6 +490,23 @@ def admin_recalculate():
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'message': 'Ranking recalculado!'})
+
+@app.route('/admin/toggle_user', methods=['POST'])
+def admin_toggle_user():
+    conn, error_response, status = require_admin_json()
+    if error_response: return error_response, status
+    data = request.get_json()
+    target_id = data.get('user_id')
+    is_active = data.get('is_active')
+    
+    if target_id == session['user_id']:
+        conn.close()
+        return jsonify({'success': False, 'message': 'Não é possível inativar a si mesmo.'})
+        
+    conn.execute('UPDATE users SET is_active = ? WHERE id = ?', (is_active, target_id))
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'message': 'Status do usuário atualizado!'})
 
 @app.route('/bet', methods=['POST'])
 def bet():
