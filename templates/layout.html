@@ -18,6 +18,9 @@
                     <a href="{{ url_for('historico') }}">Historico</a>
                     <a href="{{ url_for('leaderboard') }}">Ranking</a>
                     <a href="{{ url_for('profile') }}">Perfil</a>
+                    {% if user and user.is_admin %}
+                    <a href="#" onclick="openAdminPanel(); return false;" style="color: var(--danger-color); font-weight: bold;">Admin</a>
+                    {% endif %}
                     <a href="{{ url_for('logout') }}">Sair</a>
                 {% endif %}
             </nav>

@@ -120,7 +120,7 @@ def index():
         "SELECT * FROM games WHERE status = 'pending' OR date LIKE ? ORDER BY date ASC",
         (f"{today_local}%",)
     ).fetchall()
-    users = conn.execute('SELECT id, username, correct_bets, profile_photo FROM users ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
+    users = conn.execute('SELECT id, username, correct_bets, profile_photo FROM users WHERE is_active != 0 ORDER BY correct_bets DESC, username ASC LIMIT 10').fetchall()
     
     # Process users to use cached profile photos
     users_with_photos = []
@@ -575,7 +575,7 @@ def bet():
 @app.route('/leaderboard')
 def leaderboard():
     conn = database.get_db()
-    users = conn.execute('SELECT * FROM users ORDER BY correct_bets DESC, username ASC').fetchall()
+    users = conn.execute('SELECT * FROM users WHERE is_active != 0 ORDER BY correct_bets DESC, username ASC').fetchall()
     
     # Process users to use cached profile photos
     users_with_photos = []
