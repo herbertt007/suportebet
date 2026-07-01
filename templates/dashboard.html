@@ -1197,8 +1197,10 @@
 
 /* ====== Responsivo ====== */
 @media (max-width: 1100px) {
-    .dashboard-grid { grid-template-columns: 25% 1fr; }
-    .history-sidebar { display: none; }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .ranking-sidebar { order: 3; margin-top: 1rem; }
+    .games-main { order: 1; }
+    .history-sidebar { display: block; order: 2; margin-top: 1rem; }
 }
 @media (max-width: 700px) {
     .user-header-bar {

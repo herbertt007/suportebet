@@ -3,6 +3,85 @@
 {% block content %}
 <a href="{{ url_for('index') }}" style="display: inline-block; margin-bottom: 1rem;">&larr; Voltar para Jogos</a>
 
+<style>
+.profile-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 2rem;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    max-width: 600px;
+    margin: 0 auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.profile-preview {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.profile-photo-large {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+}
+.profile-photo-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--primary-color), #00b0ff);
+    color: #0b0f19;
+    font-size: 2.5rem;
+    font-weight: bold;
+}
+.profile-form label {
+    display: block;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    color: #eee;
+    font-weight: 600;
+}
+.profile-form input[type="text"] {
+    width: 100%;
+    padding: 0.8rem;
+    margin-top: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.3);
+    color: #fff;
+    font-size: 1rem;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.2s;
+}
+.profile-form input[type="text"]:focus {
+    border-color: var(--primary-color);
+    outline: none;
+}
+.profile-form input[type="file"] {
+    margin-top: 0.5rem;
+    display: block;
+    font-size: 0.9rem;
+    color: #bbb;
+}
+.profile-muted {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+}
+.profile-form-btn {
+    width: 100%;
+    padding: 0.85rem;
+    font-size: 1.05rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+</style>
+
 <div class="card profile-card">
     <div class="profile-preview">
         {% if user.profile_photo %}
@@ -11,24 +90,24 @@
             <span class="profile-photo-large profile-photo-fallback">{{ user.username[:1].upper() }}</span>
         {% endif %}
         <div>
-            <h2>Editar Perfil</h2>
-            <p class="profile-muted">Atualize seu nome e escolha uma foto para aparecer no ranking e nas apostas.</p>
+            <h2 style="font-size: 1.5rem; color: #fff; margin-bottom: 0.3rem;">Editar Perfil</h2>
+            <p class="profile-muted" style="margin-top: 0;">Atualize seu nome e foto para o ranking.</p>
         </div>
     </div>
 
     <form method="POST" enctype="multipart/form-data" class="profile-form" id="profile-form">
         <label>
-            Nome de usuario
+            Nome de usuário
             <input type="text" name="username" value="{{ user.username }}" required autocomplete="off" maxlength="40">
         </label>
 
         <label>
             Foto de perfil
             <input type="file" name="profile_photo" id="profile-photo-input" accept="image/png,image/jpeg,image/gif,image/webp">
+            <p class="profile-muted">Tamanho máximo: 16 MB.</p>
         </label>
-        <p class="profile-muted">Tamanho maximo: 16 MB.</p>
 
-        <button type="submit" class="btn">Salvar Perfil</button>
+        <button type="submit" class="btn profile-form-btn">Salvar Perfil</button>
     </form>
 </div>
 
